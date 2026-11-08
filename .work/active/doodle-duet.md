@@ -24,7 +24,7 @@ Two-player async draw-and-guess game for Jonas and his girlfriend, played on And
 ## Next
 
 ## Needs user
-- Firebase: new project, or a `dd_games` path in the existing choice-maker project (its rules would need merging)?
+- Firebase: new project, or a `doodleDuet` path in the existing choice-maker project (its rules would need merging)?
 - OK to create a public GitHub repo `Jonasgg99/doodle-duet` and push it for GitHub Pages?
 
 ## Verified
