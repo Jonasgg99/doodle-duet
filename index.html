@@ -14,6 +14,34 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gochi+Hand&family=Figtree:wght@400;600;800&display=swap">
   <link rel="stylesheet" href="style.css">
+  <script>
+    // Self-heal after an update. GitHub Pages lets browsers keep each file for 10 minutes, so a
+    // phone can get a new page with an old script (or the reverse) and crash on start. If the app
+    // hasn't started (app.js sets __ddStarted) after a startup error or 10 s, re-download every
+    // file, bypassing the cache, and reload. At most once a minute, so a bad connection can't loop.
+    (function () {
+      var FILES = ["./", "index.html", "app.js", "game.js", "store.js", "words.js", "firebase-config.js", "style.css"];
+      var timer;
+      function heal() {
+        clearTimeout(timer);
+        if (window.__ddStarted || heal.running) return;
+        heal.running = true;
+        var last = 0;
+        try { last = +sessionStorage.getItem("dd_heal") || 0; } catch (e) {}
+        if (Date.now() - last < 60000) {
+          var s = document.getElementById("stuck");
+          if (s) s.hidden = false;
+          return;
+        }
+        try { sessionStorage.setItem("dd_heal", String(Date.now())); } catch (e) {}
+        Promise.all(FILES.map(function (f) { return fetch(f, { cache: "reload" }).catch(function () {}); }))
+          .then(function () { location.reload(); });
+      }
+      addEventListener("error", function () { timer = setTimeout(heal, 300); });
+      addEventListener("unhandledrejection", function () { timer = setTimeout(heal, 300); });
+      setTimeout(heal, 10000);
+    })();
+  </script>
   <script type="module" src="app.js"></script>
 </head>
 <body>
@@ -25,6 +53,10 @@
   <main>
     <section id="view-loading" class="view">
       <p class="muted">Loading…</p>
+      <div class="card stack" id="stuck" hidden>
+        <p>This is taking too long. Check your internet connection, then try again.</p>
+        <button class="btn primary" type="button" onclick="location.reload()">Reload</button>
+      </div>
     </section>
 
     <section id="view-home" class="view" hidden>

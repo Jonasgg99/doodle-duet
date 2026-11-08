@@ -91,6 +91,7 @@ async function boot() {
     if (document.visibilityState === "visible") tick();
   });
   route();
+  window.__ddStarted = true; // tells the self-heal in index.html that startup worked
 }
 
 function route() {
