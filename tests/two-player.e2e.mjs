@@ -38,7 +38,7 @@ async function scribble(p) {
   }
 }
 
-// --- Round 1: Jonas creates a game and draws ---
+// --- Round 1: Jonas opens the plain site, sets up the one game and draws ---
 const A = await open("A");
 await A.goto(URL0);
 await A.fill("#name-input", "Jonas");
@@ -56,16 +56,12 @@ await A.click("#done-btn");
 await A.waitForSelector("#share-btn");
 assert.match(await text(A, "#panel"), /Drawing sent/);
 await shot(A, "04-sent");
-assert.match(A.url(), /#[a-z0-9]{6}$/, "short game link");
-const code = A.url().split("#")[1];
-assert.equal(await A.locator(".code").innerText(), code);
-const gameUrl = A.url().replace(/^[^#]*/, URL0);
+assert.ok(!A.url().includes("#"), "no game code in the link");
+assert.match(await A.locator(".link-line").innerText(), /^localhost:8124\/$/); // the plain site, nothing to type
 
-// --- Ida types the code on the home screen, joins and guesses ---
+// --- Ida opens the same plain site, joins and guesses ---
 const B = await open("B");
 await B.goto(URL0);
-await B.fill("#join-code", code.toUpperCase());
-await B.press("#join-code", "Enter");
 await B.waitForSelector("#join-btn");
 assert.match(await text(B, "#join-title"), /Jonas invited you/);
 await B.fill("#join-name", "Ida");
@@ -116,15 +112,18 @@ await shot(A, "09-times-up");
 await A.click("#continue-btn");
 await A.waitForSelector(".choice"); // Jonas draws round 3
 assert.match(await text(A, "#scoreboard"), /round 3/i);
-await A.goto(URL0.replace("?local", "?local#"));
-await A.waitForSelector(".game-list a.my-turn");
-assert.match(await text(A, ".game-list"), /Your turn to draw/);
-await shot(A, "10-home-list");
+await A.reload();
+await A.waitForSelector(".choice"); // reopening the site lands straight in the game
+await shot(A, "10-reopened");
 
-// Dark theme renders without side scroll
+// A third tab is locked out of the game
+const C = await open("C");
+await C.goto(URL0);
+await C.waitForSelector("#view-error:not([hidden])");
+
+// Dark theme
 await A.emulateMedia({ colorScheme: "dark" });
-await A.goto(gameUrl.replace(/#.*/, "") + "#");
-await shot(A, "11-home-dark");
+await shot(A, "11-dark");
 
 await browser.close();
 assert.deepEqual(errors, [], "console errors:\n" + errors.join("\n"));

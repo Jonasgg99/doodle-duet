@@ -19,8 +19,11 @@ const phone = async (label) => {
 };
 const T = { timeout: 20_000 };
 
+// A throwaway game id, so the test never takes the seats of the real (main) game.
+const testId = "test" + Math.random().toString(36).slice(2, 10);
+const gameUrl = BASE + "#" + testId;
 const A = await phone("A");
-await A.goto(BASE);
+await A.goto(gameUrl);
 await A.waitForSelector("#new-game-btn", T);
 assert.ok(await A.locator("#mode-tag").isHidden(), "should be in Firebase mode");
 await A.fill("#name-input", "Test A");
@@ -35,7 +38,6 @@ await A.mouse.move(box.x + 250, box.y + 300, { steps: 10 });
 await A.mouse.up();
 await A.click("#done-btn");
 await A.waitForSelector("#share-btn", T);
-const gameUrl = BASE + A.url().replace(/^[^#]*/, "");
 
 const B = await phone("B");
 await B.goto(gameUrl);
@@ -52,12 +54,10 @@ assert.match(await B.locator("#panel").innerText(), /You got it/);
 await A.waitForSelector("#continue-btn", T); // drawer sees the outcome live
 assert.match(await A.locator("#panel").innerText(), /got it/);
 
-// Closing and reopening keeps your seat: same anonymous identity, game listed at home.
+// Closing and reopening keeps your seat: same anonymous identity.
 await A.reload();
 await A.waitForSelector("#scoreboard .is-me", T);
 assert.match(await A.locator("#scoreboard .is-me").innerText(), /Test A/);
-await A.goto(BASE);
-await A.waitForSelector(".game-list a[data-id]", T);
 await B.reload();
 await B.click("#continue-btn", T); // the unacknowledged result comes back first
 await B.waitForSelector(".choice", T); // then B's turn to draw
@@ -73,7 +73,7 @@ const stranger = await C.evaluate(async (id) => {
   } catch (e) {
     return String(e.code || e.message);
   }
-}, gameUrl.split("#")[1]);
+}, testId);
 assert.match(stranger, /permission.denied/i, "stranger must not be able to take a seat");
 
 await browser.close();

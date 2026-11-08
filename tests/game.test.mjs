@@ -11,7 +11,6 @@ import {
   totals,
   guessLimitMs,
   replayTimeline,
-  newGameCode,
   gameIdFromHash,
 } from "../game.js";
 import { WORDS } from "../words.js";
@@ -59,13 +58,11 @@ test("word choices reuse words once the pool runs low, still three different wor
   assert.equal(new Set(c.map((x) => x.word)).size, 3);
 });
 
-test("game codes are short, typeable and parsed from links", () => {
-  const code = newGameCode();
-  assert.match(code, /^[a-hj-km-np-z2-9]{6}$/); // no i, l, o, 0, 1
+test("game ids are read from links; no id means the main game", () => {
   assert.equal(gameIdFromHash("#k7m2qp"), "k7m2qp");
   assert.equal(gameIdFromHash("#K7M2QP"), "k7m2qp");
   assert.equal(gameIdFromHash("#g=abcd2345efgh67"), "abcd2345efgh67"); // older long links still work
-  assert.equal(gameIdFromHash(" k7m2qp "), "k7m2qp"); // typed code
+  assert.equal(gameIdFromHash(""), null);
   assert.equal(gameIdFromHash("#"), null);
   assert.equal(gameIdFromHash("#hello world"), null);
 });

@@ -57,16 +57,9 @@ let gameId = null, game = null, unwatch = null;
 let panelKey = null; // which panel is on screen, so live updates don't restart it
 let drawing = null; // active drawing session
 let guessing = null; // active guessing session
-let homeWatches = [];
-
-const myGamesKey = () => "dd_games:" + me;
+// The site is one shared game for two people. Other ids (old links, tests) still open via #<id>.
+const MAIN_GAME = "main";
 const prefs = { name: ls.get("dd_name", ""), lang: ls.get("dd_lang", "en") };
-
-function remember(id) {
-  const list = ls.get(myGamesKey(), []).filter((x) => x !== id);
-  list.unshift(id);
-  ls.set(myGamesKey(), list.slice(0, 20));
-}
 
 // ---------- views ----------
 function show(view) {
@@ -104,13 +97,9 @@ function route() {
   stopSessions();
   if (unwatch) unwatch();
   unwatch = null;
-  homeWatches.forEach((u) => u());
-  homeWatches = [];
   game = null;
   panelKey = null;
-  const id = G.gameIdFromHash(location.hash);
-  if (id) openGame(id);
-  else showHome();
+  openGame(G.gameIdFromHash(location.hash) ?? MAIN_GAME);
 }
 
 // ---------- home ----------
@@ -132,46 +121,6 @@ function setupHome() {
   };
   seg($("#lang-seg"), Object.entries(LANG_NAMES), prefs.lang, (v) => ls.set("dd_lang", (prefs.lang = v)));
   $("#new-game-btn").addEventListener("click", newGame);
-  $("#join-code-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const id = G.gameIdFromHash($("#join-code").value);
-    if (id) location.hash = id;
-    else toast("That doesn't look like a game code. It's 6 letters and numbers.");
-  });
-}
-
-function showHome() {
-  show("home");
-  const ul = $("#game-list");
-  const ids = ls.get(myGamesKey(), []);
-  if (!ids.length) {
-    ul.innerHTML = `<li class="empty">No games yet. Start one above, or open a link your partner sent you.</li>`;
-    return;
-  }
-  ul.innerHTML = ids.map((id) => `<li><a href="#${id}" data-id="${id}"><span class="gl-title">Loading…</span><span class="gl-status"></span></a></li>`).join("");
-  for (const id of ids) {
-    homeWatches.push(
-      store.watch(
-        "games/" + id,
-        (g) => {
-          const a = ul.querySelector(`[data-id="${id}"]`);
-          if (!a) return;
-          if (!g) {
-            a.parentElement.remove();
-            return;
-          }
-          const seat = seatOf(g);
-          const other = g.players?.[G.otherSeat(seat)];
-          const t = totals(g);
-          a.querySelector(".gl-title").textContent = `You vs ${other?.name || "(not joined yet)"} · ${t[seat]}–${t[G.otherSeat(seat)]}`;
-          const s = statusFor(g, seat);
-          a.querySelector(".gl-status").textContent = s.text;
-          a.classList.toggle("my-turn", s.mine);
-        },
-        () => {}
-      )
-    );
-  }
 }
 
 async function newGame() {
@@ -188,15 +137,9 @@ async function newGame() {
   const btn = $("#new-game-btn");
   btn.disabled = true;
   try {
-    // Short codes can collide in theory; claim the code so an existing game is never overwritten.
-    let id = null;
-    for (let i = 0; i < 4 && !id; i++) {
-      const code = G.newGameCode();
-      if (await store.claim("games/" + code, data).catch(() => false)) id = code;
-    }
-    if (!id) throw new Error("no free game code");
-    remember(id);
-    location.hash = id;
+    // Claim, so a game the other phone created a moment earlier is never overwritten.
+    // Either way the live watch then shows whatever game exists.
+    await store.claim("games/" + gameId, data);
   } catch (e) {
     console.error(e);
     toast("Couldn't create the game. Try again.");
@@ -216,19 +159,6 @@ const totals = (g) => G.totals(turnList(g));
 const nameOf = (g, seat) => g.players?.[seat]?.name || (seat === "a" ? "Player 1" : "Player 2");
 const curTurn = (g) => g.turns[g.cur];
 const guessDeadline = (g, t) => t.guessStartedAt + G.guessLimitMs(g.drawSecs);
-
-function statusFor(g, seat) {
-  const t = curTurn(g);
-  const other = nameOf(g, G.otherSeat(seat));
-  if (!t) return { text: "", mine: false };
-  if (t.drawer === seat) {
-    if (t.status === "draw") return { text: "Your turn to draw", mine: true };
-    if (!g.players.b) return { text: "Waiting for your partner to join", mine: false };
-    return { text: `Waiting for ${other} to guess`, mine: false };
-  }
-  if (t.status === "draw") return { text: `Waiting for ${other} to draw`, mine: false };
-  return { text: "Your turn to guess", mine: true };
-}
 
 function usedWords(g) {
   return new Set(turnList(g).map((t) => t.word).filter(Boolean));
@@ -265,7 +195,6 @@ function showJoin() {
     try {
       const ok = await store.claim(`games/${gameId}/players/b`, { uid: me, name });
       if (!ok) throw new Error("taken");
-      remember(gameId);
     } catch (e) {
       console.error(e);
       const err = $("#join-error");
@@ -279,13 +208,12 @@ function showJoin() {
 
 // ---------- game rendering ----------
 function renderGame() {
-  if (!game) return showError("This game doesn't exist (or was deleted).");
+  if (!game) return show("home"); // no game yet: set it up
   const seat = seatOf(game);
   if (!seat) {
     if (!game.players.b) return showJoin();
     return showError("This game already has two players on other devices.");
   }
-  remember(gameId);
   show("game");
   renderScoreboard(seat);
   renderHistory(seat);
@@ -701,7 +629,7 @@ function panelWait(panel, seat) {
   const [, , what] = panelKey.split(":");
   const other = nameOf(game, G.otherSeat(seat));
   const msgs = {
-    join: ["Drawing sent!", "Now send the game link to your partner. They join, guess your drawing, then draw one for you."],
+    join: ["Drawing sent!", "Now send your partner the link. They join, guess your drawing, then draw one for you."],
     guess: [`Waiting for ${other} to guess`, "Give them a nudge so they know your drawing is ready."],
     draw: [`Waiting for ${other} to draw`, "You'll get to guess as soon as they send it. Check back later."],
   };
@@ -710,21 +638,20 @@ function panelWait(panel, seat) {
     <div class="card stack center">
       <h2>${esc(head)}</h2>
       <p class="muted">${esc(sub)}</p>
-      ${what === "join" ? `<p class="code-line">Game code <span class="code">${esc(gameId)}</span></p><p class="muted small">Or they open ${esc(shortBase())} and type the code.</p>` : ""}
+      ${what === "join" ? `<p class="link-line">${esc(gameLink().replace(/^https?:\/\//, ""))}</p>` : ""}
       <p class="muted small" id="wait-extra"></p>
       <button class="btn primary" id="share-btn">${what === "join" ? "Send invite link" : "Nudge " + esc(other)}</button>
-      <a href="#" class="btn">All games</a>
     </div>`;
   $("#share-btn").onclick = () => share(what);
   updatePanel(seat);
 }
 
-const shortBase = () => location.host + location.pathname.replace(/index\.html$/, "");
+const gameLink = () => location.origin + location.pathname.replace(/index\.html$/, "") + (gameId === MAIN_GAME ? "" : "#" + gameId);
 
 async function share(what) {
-  const url = location.origin + location.pathname.replace(/index\.html$/, "") + "#" + gameId;
+  const url = gameLink();
   const text = {
-    join: `Play Doodle Duet with me! I've drawn the first one, your turn to guess. Game code: ${gameId}`,
+    join: `Play Doodle Duet with me! I've drawn the first one, your turn to guess.`,
     guess: `My drawing is ready for you to guess in Doodle Duet.`,
     draw: `Your turn to draw in Doodle Duet!`,
   }[what];

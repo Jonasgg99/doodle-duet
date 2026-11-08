@@ -18,7 +18,7 @@
 </head>
 <body>
   <header class="topbar">
-    <a href="#" class="brand" id="brand">Doodle&nbsp;Duet</a>
+    <a href="./" class="brand" id="brand">Doodle&nbsp;Duet</a>
     <span class="mode-tag" id="mode-tag" hidden>local test mode</span>
   </header>
 
@@ -34,25 +34,14 @@
       </div>
 
       <div class="card stack">
-        <h2>New game</h2>
+        <h2>Set up your game</h2>
         <div class="field">
           <span class="label" id="lang-label">Words</span>
           <div class="seg" id="lang-seg" role="radiogroup" aria-labelledby="lang-label"></div>
         </div>
-        <button id="new-game-btn" class="btn primary">Start a game</button>
-        <p class="muted small">60 seconds per drawing. You draw first, then send the link to your partner. They guess, then draw the next one.</p>
+        <button id="new-game-btn" class="btn primary">Start</button>
+        <p class="muted small">60 seconds per drawing. You draw first, then send your partner the link. They guess, then draw the next one.</p>
       </div>
-
-      <form class="card stack" id="join-code-form" autocomplete="off">
-        <label class="label" for="join-code">Got a game code?</label>
-        <div class="row">
-          <input id="join-code" class="input code-input" maxlength="20" placeholder="e.g. k7m2qp" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
-          <button class="btn" type="submit">Join</button>
-        </div>
-      </form>
-
-      <h2 class="section-title">Your games</h2>
-      <ul id="game-list" class="game-list"></ul>
     </section>
 
     <section id="view-join" class="view" hidden>
@@ -69,7 +58,6 @@
     <section id="view-error" class="view" hidden>
       <div class="card stack">
         <p id="error-text"></p>
-        <a href="#" class="btn">Back to your games</a>
       </div>
     </section>
 

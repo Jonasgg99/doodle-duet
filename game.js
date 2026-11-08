@@ -62,12 +62,7 @@ export function pickChoices(lang, used, rng = Math.random) {
   return [...fresh, ...reused].slice(0, 3);
 }
 
-const CODE_ABC = "abcdefghjkmnpqrstuvwxyz23456789"; // no i, l, o, 0, 1
-export function newGameCode() {
-  return Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => CODE_ABC[b % CODE_ABC.length]).join("");
-}
-
-// Accepts "#k7m2qp", older "#g=<id>" links, or a typed code. Returns the id or null.
+// Accepts "#<id>" or older "#g=<id>" links. Returns the id or null (no id: the main game).
 export function gameIdFromHash(s) {
   const id = String(s ?? "").trim().replace(/^#/, "").replace(/^g=/, "").toLowerCase();
   return /^[a-z0-9]{4,20}$/.test(id) ? id : null;
