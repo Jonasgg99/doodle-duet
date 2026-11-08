@@ -22,10 +22,14 @@ Two-player async draw-and-guess game for Jonas and his girlfriend, played on And
 - One shared game, id `main`, opened by the plain URL (Jonas, 2026-11-08: no codes, it's two players). Replaced the short-code design from earlier the same day. First visitor sets it up (claimed by transaction), second joins, everyone else is locked out by the rules. Trade-off: whoever opens the site first after setup but before the partner could take seat b; accepted. Recovery from a lost seat = delete the game in the console.
 - Draw time fixed at 60 s (Jonas, 2026-11-08; 45/60/90 picker removed). Guess time = draw time + 20 s, starts when the guesser taps Start and keeps running if they leave.
 
+- Streamline + challenge set (Jonas, 2026-11-08, "Do it" on suggestions 1, 2, 4, 5): Send opens the share sheet itself (no separate Nudge step; auto-send on timeout can't open it, Nudge button stays); the last round's result is a banner on the next screen instead of its own screen; max 3 wrong guesses per round ("so close" doesn't count); points decay with guess time: 3 / 2 / 1 for a correct guess in the first / middle / last third of the guess time, same points to drawer and guesser (replaces flat 1 + speed bonus). Not chosen yet, in .work/backlog/: notifications, difficulty tiers, challenge rounds, fewer hints, team streak.
+
 ## Dead ends
 
 ## Next
-- Wait for Jonas's verdict from real-phone play; fix what he reports. Then finish: move lasting notes to AGENTS.md and delete this file.
+- Build the streamline + challenge set (Decisions), tests first; deploy and verify live.
+- Then wait for Jonas's verdict from real-phone play; fix what he reports. Then finish: move lasting notes to AGENTS.md and delete this file.
+- Real game `main` exists live: Jonas is player a and has drawn turn 0; seat b waits for his girlfriend. Tests must never use the plain URL in Firebase mode.
 
 ## Needs user
 - Play a round on the two real phones: S Pen drawing, Install app from the browser menu, share sheet for invite/nudge. Report anything off.
