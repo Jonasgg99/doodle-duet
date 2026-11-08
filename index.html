@@ -20,7 +20,7 @@
     // hasn't started (app.js sets __ddStarted) after a startup error or 10 s, re-download every
     // file, bypassing the cache, and reload. At most once a minute, so a bad connection can't loop.
     (function () {
-      var FILES = ["./", "index.html", "app.js", "game.js", "store.js", "words.js", "firebase-config.js", "style.css"];
+      var FILES = ["./", "index.html", "app.js", "game.js", "store.js", "words.js", "firebase-config.js", "push.js", "push-config.js", "style.css"];
       var timer;
       function heal() {
         clearTimeout(timer);

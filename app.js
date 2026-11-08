@@ -1,6 +1,7 @@
 import { openStore } from "./store.js";
 import { LANG_NAMES } from "./words.js";
 import * as G from "./game.js";
+import * as P from "./push.js";
 
 // ---------- constants ----------
 const W = 1000, H = 1500; // logical canvas size; strokes are stored in these units
@@ -216,6 +217,7 @@ function renderGame() {
     return showError("This game already has two players on other devices.");
   }
   show("game");
+  syncPush(seat);
   renderScoreboard(seat);
   renderHistory(seat);
 
@@ -361,7 +363,7 @@ function panelChoose(panel) {
 }
 
 // ---------- panel: draw ----------
-function panelDraw(panel) {
+function panelDraw(panel, seat) {
   const t = curTurn(game);
   const limit = game.drawSecs * 1000;
   panel.innerHTML = `
@@ -473,7 +475,9 @@ function panelDraw(panel) {
         status: "guess",
       });
       keepAwake(false);
-      if (byTap) share(game.players.b ? "guess" : "join", { auto: true });
+      // Partner has notifications on: notify them. Otherwise open the share sheet (needs the tap).
+      if (game.players.b && game.push?.[G.otherSeat(seat)]) notifyPartner(seat, byTap ? "" : "Time's up, drawing sent. ");
+      else if (byTap) share(game.players.b ? "guess" : "join", { auto: true });
       else toast("Time's up, drawing sent. Tap Nudge to tell your partner.");
     } catch (err) {
       console.error(err);
@@ -640,9 +644,61 @@ function panelWait(panel, seat) {
       ${what === "join" ? `<p class="link-line">${esc(gameLink().replace(/^https?:\/\//, ""))}</p>` : ""}
       <p class="muted small" id="wait-extra"></p>
       <button class="btn primary" id="share-btn">${what === "join" ? "Send invite link" : "Nudge " + esc(other)}</button>
+      <div id="push-box"></div>
     </div>`;
   $("#share-btn").onclick = () => share(what);
+  renderPushBox(seat);
   updatePanel(seat);
+}
+
+// ---------- notifications ----------
+// Offered on the waiting screen, where "tell me when it's my turn" makes sense.
+function renderPushBox(seat) {
+  const box = $("#push-box");
+  const perm = P.pushPermission();
+  if (!box || perm === "unsupported") return;
+  if (perm === "granted" && game.push?.[seat]) {
+    box.innerHTML = `<p class="muted small">You'll get a notification when it's your turn.</p>`;
+  } else if (perm === "denied") {
+    box.innerHTML = `<p class="muted small">Notifications are blocked for this site. Allow them in the browser's site settings to get one when it's your turn.</p>`;
+  } else {
+    box.innerHTML = `<button class="btn" id="push-btn">Notify me when it's my turn</button>`;
+    $("#push-btn").onclick = async (e) => {
+      e.target.disabled = true;
+      try {
+        const sub = await P.subscribe();
+        if (sub) await store.update(`games/${gameId}/push`, { [seat]: sub });
+        else toast("Notifications weren't allowed.");
+      } catch (err) {
+        console.error(err);
+        toast("Couldn't turn on notifications on this phone.");
+      }
+      renderPushBox(seat);
+    };
+  }
+}
+
+// Push services can replace a subscription; keep the stored one current, once per page load.
+let pushSynced = null;
+async function syncPush(seat) {
+  if (pushSynced === gameId + seat) return;
+  pushSynced = gameId + seat;
+  const sub = await P.currentSubscription().catch(() => null);
+  if (sub && sub.endpoint !== game?.push?.[seat]?.endpoint) store.update(`games/${gameId}/push`, { [seat]: sub }).catch(console.error);
+}
+
+async function notifyPartner(seat, prefix) {
+  const other = G.otherSeat(seat);
+  const them = nameOf(game, other);
+  let ok = false;
+  try {
+    const r = await P.notify(game.push[other], { title: `${nameOf(game, seat)} drew something`, body: "Your turn to guess in Doodle Duet.", url: gameLink() });
+    if (r.gone) await store.update(`games/${gameId}/push`, { [other]: null });
+    ok = r.status >= 200 && r.status < 300;
+  } catch (err) {
+    console.error(err);
+  }
+  toast(prefix + (ok ? `${them} gets a notification.` : `Couldn't notify ${them}. Tap Nudge to tell them.`));
 }
 
 const gameLink = () => location.origin + location.pathname.replace(/index\.html$/, "") + (gameId === MAIN_GAME ? "" : "#" + gameId);

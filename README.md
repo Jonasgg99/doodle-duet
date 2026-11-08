@@ -13,6 +13,8 @@ Open the game link in Chrome (or Samsung Internet) and use **Add to home screen 
 
 The site is one shared game for the two of you: **jonasgg99.github.io/doodle-duet**. The first person to open it enters a name, picks a language, taps **Start** and draws. The second person opens the same address and taps **Join game**. After that nobody else can get in. Tapping Send after drawing opens your phone's share sheet so you can tell your partner straight away; if the timer sent the drawing for you, use the Nudge button.
 
+To skip that: on the waiting screen, tap **Notify me when it's my turn** and allow notifications. From then on your partner's Send gives you a phone notification instead, with no app to install. Notifications go through a small Cloudflare Worker and your browser's push service (Google's, for Chrome on Android); the message is encrypted for your phone on the way.
+
 Each phone is identified by the browser's anonymous sign-in. Clearing the browser's site data for the game loses your seat in existing games.
 
 ## Running locally

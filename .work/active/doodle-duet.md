@@ -23,10 +23,12 @@ Two-player async draw-and-guess game for Jonas and his girlfriend, played on And
 - Draw time fixed at 60 s (Jonas, 2026-11-08; 45/60/90 picker removed). Guess time = draw time + 20 s, starts when the guesser taps Start and keeps running if they leave.
 
 - Streamline + challenge set (Jonas, 2026-11-08, "Do it" on suggestions 1, 2, 4, 5): Send opens the share sheet itself (no separate Nudge step; auto-send on timeout can't open it, Nudge button stays); the last round's result is a banner on the next screen instead of its own screen; max 3 wrong guesses per round ("so close" doesn't count); points decay with guess time: 3 / 2 / 1 for a correct guess in the first / middle / last third of the guess time, same points to drawer and guesser (replaces flat 1 + speed bonus). Not chosen yet, in .work/backlog/: notifications, difficulty tiers, challenge rounds, fewer hints, team streak.
+- Notifications: real web push via a Cloudflare Worker (Jonas, 2026-11-08, chose it over ntfy and Firebase Functions; no app for his girlfriend to install). Opt-in on the waiting screen; one notification type, "<name> drew something", sent when a drawing is sent (by tap or timeout), replacing the share sheet when the partner has push on. No result notifications (the banner covers that). Worker has no dependencies (own RFC 8291/8292 code, checked against the RFC vector) and only relays to real push services, for this site's origins, with links to this site.
 
 ## Dead ends
 
 ## Next
+- Push: Jonas creates a Cloudflare account (workers.dev subdomain) and runs `npx wrangler login`; then deploy worker/ (`npx wrangler deploy` in worker/), set the key pair with `node tools/vapid-keys.mjs | npx wrangler secret put VAPID_PRIVATE_JWK --config worker/wrangler.toml`, put the Worker URL in push-config.js, check a real FCM round trip, push to Pages, re-run live tests.
 - Then wait for Jonas's verdict from real-phone play; fix what he reports. Then finish: move lasting notes to AGENTS.md and delete this file.
 - Real game `main` exists live: Jonas is player a and has drawn turn 0; seat b waits for his girlfriend. Tests must never use the plain URL in Firebase mode.
 
@@ -40,3 +42,4 @@ Two-player async draw-and-guess game for Jonas and his girlfriend, played on And
 - single shared game: unit (10), local two-player e2e (both open the plain site; third tab locked out; reopen lands in game) and live firebase e2e on localhost (throwaway id) passed @c83b4d0+dirty. One live run timed out at the partner's reload and passed on rerun (network was flaky: an earlier push and page load also timed out).
 - Stuck on Loading after deploy reproduced (new index.html + previous app.js -> TypeError in setupHome); self-heal added; stale-deploy e2e, unit, local and live tests passed @e3527b6+dirty.
 - Streamline + challenge set: unit (11), local three-round e2e (share sheet on Send but not on auto-send, banners, 3-wrong-guess loss, time-out loss, 3/2/1 points), stale-deploy and live firebase e2e on localhost passed @8430967+dirty.
+- Web push (not deployed): unit (18, incl. RFC 8291 vector byte-exact, VAPID JWT verifies, Worker refuses foreign origin/endpoint/link), push e2e (opt-in stores subscription, notify replaces share sheet, 410 removes it, service worker shows a CDP-delivered push), two-player and stale-deploy e2e passed @25dd8af+dirty.
