@@ -28,7 +28,7 @@ Two-player async draw-and-guess game for Jonas and his girlfriend, played on And
 ## Dead ends
 
 ## Next
-- Push: Jonas creates a Cloudflare account (workers.dev subdomain) and runs `npx wrangler login`; then deploy worker/ (`npx wrangler deploy` in worker/), set the key pair with `node tools/vapid-keys.mjs | npx wrangler secret put VAPID_PRIVATE_JWK --config worker/wrangler.toml`, put the Worker URL in push-config.js, check a real FCM round trip, push to Pages, re-run live tests.
+- Push: Worker live at https://doodle-duet-push.jonaseg.workers.dev (Cloudflare account jonaseg, secret set 2026-11-08). Left: push to Pages (ask), re-run live firebase e2e on Pages, then real-phone check: her phone taps Notify on the waiting screen, Jonas sends a drawing.
 - Then wait for Jonas's verdict from real-phone play; fix what he reports. Then finish: move lasting notes to AGENTS.md and delete this file.
 - Real game `main` exists live: Jonas is player a and has drawn turn 0; seat b waits for his girlfriend. Tests must never use the plain URL in Firebase mode.
 
@@ -43,3 +43,4 @@ Two-player async draw-and-guess game for Jonas and his girlfriend, played on And
 - Stuck on Loading after deploy reproduced (new index.html + previous app.js -> TypeError in setupHome); self-heal added; stale-deploy e2e, unit, local and live tests passed @e3527b6+dirty.
 - Streamline + challenge set: unit (11), local three-round e2e (share sheet on Send but not on auto-send, banners, 3-wrong-guess loss, time-out loss, 3/2/1 points), stale-deploy and live firebase e2e on localhost passed @8430967+dirty.
 - Web push (not deployed): unit (18, incl. RFC 8291 vector byte-exact, VAPID JWT verifies, Worker refuses foreign origin/endpoint/link), push e2e (opt-in stores subscription, notify replaces share sheet, 410 removes it, service worker shows a CDP-delivered push), two-player and stale-deploy e2e passed @25dd8af+dirty.
+- Live Worker: rejects missing/foreign Origin (403), preflight allows the Pages origin, a send to a made-up FCM token ran fully and FCM answered 410 (gone) @edc300e+dirty. A real FCM subscription could not be made headless (Chromium and Chrome both refuse registration), so FCM accepting our VAPID signature is unverified until the phone test. Unit (18), push, two-player and stale-deploy e2e passed with the real push-config @edc300e+dirty.
