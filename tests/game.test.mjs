@@ -18,6 +18,8 @@ import {
   wordLevels,
   WORD_SETTINGS,
   missedGuesses,
+  resultIsNew,
+  turnsInOrder,
 } from "../game.js";
 import { WORDS } from "../words.js";
 
@@ -126,6 +128,26 @@ test("totals sum finished turns only", () => {
   ];
   assert.deepEqual(totals(turns), { a: 3, b: 4 });
   assert.deepEqual(totals([]), { a: 0, b: 0 });
+});
+
+test("totals count non-numeric points in bad data as 0", () => {
+  const turns = [{ drawer: "a", result: { drawerPts: "<img src=x>", guesserPts: 2 } }, { drawer: "b", result: { drawerPts: 1, guesserPts: null } }];
+  assert.deepEqual(totals(turns), { a: 0, b: 3 });
+});
+
+test("a round's result is new until seen, and again after the game was set up anew", () => {
+  // resultIsNew(last finished round, last round seen on this phone, current round)
+  assert.equal(resultIsNew(0, -1, 1), true);
+  assert.equal(resultIsNew(4, 3, 5), true);
+  assert.equal(resultIsNew(4, 4, 5), false);
+  assert.equal(resultIsNew(0, 57, 1), true); // game deleted and restarted after round 57
+});
+
+test("turns are ordered by round, also past round 999", () => {
+  const t = (n) => ({ n });
+  const turns = { t1001: t(1001), t999: t(999), t1000: t(1000), t000: t(0), t101: t(101) };
+  assert.deepEqual(turnsInOrder(turns).map((x) => x.n), [0, 101, 999, 1000, 1001]);
+  assert.deepEqual(turnsInOrder(undefined), []);
 });
 
 test("guess time is draw time plus 20 seconds", () => {

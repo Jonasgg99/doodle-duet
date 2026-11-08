@@ -12,21 +12,34 @@ const plain = (sub) => {
   return { endpoint: j.endpoint, keys: { p256dh: j.keys.p256dh, auth: j.keys.auth } };
 };
 
+// A subscription made with another VAPID key (before tools/vapid-keys.mjs made a new pair)
+// can't receive our pushes; replace it with one for the current key.
+const sameKey = (sub) => {
+  const k = sub.options?.applicationServerKey;
+  if (!k) return true; // browser doesn't say; assume it's ours
+  const a = new Uint8Array(k), b = keyBytes(PUSH.publicKey);
+  return a.length === b.length && a.every((x, i) => x === b[i]);
+};
+async function ensureSubscription(reg, sub) {
+  if (sub && sameKey(sub)) return sub;
+  await sub?.unsubscribe();
+  return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(PUSH.publicKey) });
+}
+
 // Asks for permission (call from a tap) and returns this phone's subscription, or null.
 export async function subscribe() {
   if ((await Notification.requestPermission()) !== "granted") return null;
   await navigator.serviceWorker.register("sw.js");
   const reg = await navigator.serviceWorker.ready;
-  const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(PUSH.publicKey) }));
-  return plain(sub);
+  return plain(await ensureSubscription(reg, await reg.pushManager.getSubscription()));
 }
 
-// This phone's subscription if notifications are already allowed, without prompting.
+// This phone's subscription if it has opted in and notifications are allowed, without prompting.
 export async function currentSubscription() {
   if (pushPermission() !== "granted") return null;
   const reg = await navigator.serviceWorker.getRegistration();
   const sub = await reg?.pushManager.getSubscription();
-  return sub ? plain(sub) : null;
+  return sub ? plain(await ensureSubscription(reg, sub)) : null;
 }
 
 // Resolves {status, gone?}: status is the push service's reply; gone means forget the subscription.

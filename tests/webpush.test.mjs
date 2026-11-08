@@ -122,7 +122,7 @@ test("only real browser push services are accepted as endpoints", () => {
 // ---- the Worker ----
 async function callWorker(body, { origin = "https://jonasgg99.github.io", pushStatus = 201 } = {}) {
   const v = await vapidKeys();
-  const env = { VAPID_PRIVATE_JWK: JSON.stringify(v.privateJwk), VAPID_PUBLIC: v.publicKey, VAPID_SUBJECT: "https://jonasgg99.github.io/doodle-duet/" };
+  const env = { VAPID_PRIVATE_JWK: JSON.stringify(v.privateJwk) };
   const sent = [];
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url, init) => {

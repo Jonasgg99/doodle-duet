@@ -156,7 +156,7 @@ function makeTurn(n, drawer, used, lang, wordLevel) {
 
 // ---------- game model helpers ----------
 const seatOf = (g) => (g?.players?.a?.uid === me ? "a" : g?.players?.b?.uid === me ? "b" : null);
-const turnList = (g) => Object.keys(g?.turns || {}).sort().map((k) => g.turns[k]);
+const turnList = (g) => G.turnsInOrder(g?.turns);
 const totals = (g) => G.totals(turnList(g));
 const nameOf = (g, seat) => g.players?.[seat]?.name || (seat === "a" ? "Player 1" : "Player 2");
 const curTurn = (g) => g.turns[g.cur];
@@ -229,15 +229,20 @@ function renderGame() {
     return;
   }
   stopSessions();
-  panelKey = key;
   const [kind] = key.split(":");
-  setFocusMode(kind === "draw" || kind === "guess");
   const panel = $("#panel");
+  // The same kind of screen redrawn (new word choices after a setting change, the partner
+  // joining) keeps the banner on screen, with any message being typed and the keyboard.
+  const keep = panelKey?.split(":")[0] === kind ? panel.querySelector(".result-banner") : null;
+  const typing = keep?.contains(document.activeElement) ? document.activeElement : null;
+  panelKey = key;
+  setFocusMode(kind === "draw" || kind === "guess");
   panel.innerHTML = "";
   ({ choose: panelChoose, draw: panelDraw, ready: panelReady, guess: panelGuess, wait: panelWait })[kind](panel, seat);
   if (kind !== "draw" && kind !== "guess") {
-    const banner = resultBanner(seat);
+    const banner = resultBanner(seat) ?? keep;
     if (banner) panel.prepend(banner);
+    if (banner === keep) typing?.focus({ preventScroll: true });
   }
 }
 
@@ -245,7 +250,7 @@ function renderGame() {
 function resultBanner(seat) {
   const last = turnList(game).filter((x) => x.status === "done").at(-1);
   const seenKey = `dd_seen:${gameId}:${seat}`;
-  if (!last || last.n <= ls.get(seenKey, -1)) return null;
+  if (!last || !G.resultIsNew(last.n, ls.get(seenKey, -1), curTurn(game).n)) return null;
   ls.set(seenKey, last.n);
   const r = last.result;
   const iDrew = last.drawer === seat;
@@ -310,9 +315,9 @@ function renderScoreboard(seat) {
   const chip = (s) => `
     <div class="player p-${s} ${s === seat ? "is-me" : ""}">
       <span class="pname">${esc(nameOf(game, s))}${s === seat ? ' <span class="you">you</span>' : ""}</span>
-      <span class="pscore">${t[s]}</span>
+      <span class="pscore">${esc(t[s])}</span>
     </div>`;
-  $("#scoreboard").innerHTML = `${chip("a")}<div class="round">Round ${cur.n + 1}</div>${chip("b")}`;
+  $("#scoreboard").innerHTML = `${chip("a")}<div class="round">Round ${esc(cur.n + 1)}</div>${chip("b")}`;
 }
 
 // Easy / Mixed / Hard, for both players, changeable any time. A word choice on screen that
@@ -359,7 +364,7 @@ function renderHistory(seat) {
     const r = t.result;
     const by = t.drawer === seat ? "You drew" : `${esc(nameOf(game, t.drawer))} drew`;
     const outcome = r.correct
-      ? `guessed in ${secs(r.ms)} s · +${t.drawer === seat ? r.drawerPts : r.guesserPts} for you`
+      ? `guessed in ${secs(r.ms)} s · +${esc(t.drawer === seat ? r.drawerPts : r.guesserPts)} for you`
       : "not guessed";
     const missed = G.missedGuesses(t);
     li.insertAdjacentHTML(
@@ -410,7 +415,7 @@ function panelChoose(panel) {
   panel.innerHTML = `
     <div class="card stack">
       <h2>Pick a word to draw</h2>
-      <p class="muted small">The ${game.drawSecs}-second timer starts as soon as you pick.</p>
+      <p class="muted small">The ${esc(game.drawSecs)}-second timer starts as soon as you pick.</p>
       <div class="choices">
         ${t.choices.map((c, i) => `<button class="choice" data-i="${i}"><span class="cw">${esc(c.word)}</span></button>`).join("")}
       </div>
@@ -437,7 +442,7 @@ function panelDraw(panel, seat) {
   panel.innerHTML = `
     <div class="draw-head">
       <div><span class="muted small">Draw</span> <strong class="word">${esc(t.word)}</strong></div>
-      <div class="timer" id="draw-timer">${game.drawSecs}</div>
+      <div class="timer" id="draw-timer">${esc(game.drawSecs)}</div>
     </div>
     <div class="timebar"><div class="timebar-fill" id="draw-bar"></div></div>
     <div class="canvas-box"><canvas class="art" id="draw-canvas"></canvas></div>
@@ -629,7 +634,7 @@ function panelGuess(panel, seat) {
   };
   const addGuess = (g) => {
     made.push(g);
-    list.insertAdjacentHTML("afterbegin", `<li class="g-${g.r}">${esc(g.g)}${g.r === "close" ? " <em>so close!</em>" : ""}</li>`);
+    list.insertAdjacentHTML("afterbegin", `<li class="g-${esc(g.r)}">${esc(g.g)}${g.r === "close" ? " <em>so close!</em>" : ""}</li>`);
     showLeft();
   };
   Object.values(t.guesses || {})

@@ -88,13 +88,21 @@ export function gameIdFromHash(s) {
 
 export function totals(turns) {
   const t = { a: 0, b: 0 };
+  const pts = (x) => (Number.isFinite(x) ? x : 0);
   for (const turn of turns) {
     if (!turn?.result) continue;
-    t[turn.drawer] += turn.result.drawerPts;
-    t[otherSeat(turn.drawer)] += turn.result.guesserPts;
+    t[turn.drawer] += pts(turn.result.drawerPts);
+    t[otherSeat(turn.drawer)] += pts(turn.result.guesserPts);
   }
   return t;
 }
+
+// Turns in round order. Keys are "t" + round padded to 3 digits, so key order breaks at t1000.
+export const turnsInOrder = (turns) => Object.values(turns || {}).sort((a, b) => a.n - b.n);
+
+// Whether the last finished round's result still has to be shown on this phone. A seen round at
+// or past the current round means the game was deleted and set up again, so it no longer counts.
+export const resultIsNew = (lastN, seenN, curN) => lastN > seenN || seenN >= curN;
 
 export const guessLimitMs = (drawSecs) => (drawSecs + 20) * 1000;
 

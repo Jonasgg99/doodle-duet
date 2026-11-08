@@ -32,12 +32,24 @@ await ctx.route(WORKER + "/**", (r) => {
 await ctx.addInitScript(() => {
   window.__shares = [];
   navigator.share = async (data) => void window.__shares.push(data);
-  // Headless Chromium has no push service; hand out a fake FCM subscription per tab.
-  PushManager.prototype.getSubscription = async () => window.__sub ?? null;
-  PushManager.prototype.subscribe = async () => {
-    const id = Math.random().toString(36).slice(2);
-    const keys = { p256dh: "BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8", auth: "BTBZMqHH6r4Tts7J_aSIgg" };
-    return (window.__sub = { endpoint: "https://fcm.googleapis.com/fcm/send/" + id, toJSON: () => ({ endpoint: window.__sub.endpoint, keys }) });
+  // Headless Chromium has no push service; hand out a fake FCM subscription per tab, kept in
+  // sessionStorage ({endpoint, key: the applicationServerKey as a byte array}) so it survives a reload.
+  const keys = { p256dh: "BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8", auth: "BTBZMqHH6r4Tts7J_aSIgg" };
+  const fake = (s) => ({
+    endpoint: s.endpoint,
+    options: { applicationServerKey: new Uint8Array(s.key).buffer, userVisibleOnly: true },
+    toJSON: () => ({ endpoint: s.endpoint, keys }),
+    unsubscribe: async () => (sessionStorage.removeItem("__sub"), true),
+  });
+  PushManager.prototype.getSubscription = async () => {
+    const s = sessionStorage.getItem("__sub");
+    return s ? fake(JSON.parse(s)) : null;
+  };
+  PushManager.prototype.subscribe = async (opts) => {
+    if (sessionStorage.getItem("__sub")) throw new DOMException("already subscribed with a different key", "InvalidStateError");
+    const s = { endpoint: "https://fcm.googleapis.com/fcm/send/" + Math.random().toString(36).slice(2), key: [...new Uint8Array(opts.applicationServerKey)] };
+    sessionStorage.setItem("__sub", JSON.stringify(s));
+    return fake(s);
   };
 });
 
@@ -133,6 +145,30 @@ for (let i = 0; i < 30 && !shown.length; i++) {
   shown = await A.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => [n.title, n.body, n.tag]));
 }
 assert.deepEqual(shown, [["Ida drew something", "Your turn to guess in Doodle Duet.", "doodle-duet"]]);
+
+// 6. After a VAPID key change, a phone's subscription made with the old key is replaced on its
+// next visit, without tapping anything, and the new one is stored for the partner to use.
+const OLD = "https://fcm.googleapis.com/fcm/send/old-key";
+await A.evaluate((endpoint) => {
+  sessionStorage.setItem("__sub", JSON.stringify({ endpoint, key: Array(65).fill(4) }));
+  const db = JSON.parse(localStorage.getItem("dd_localdb"));
+  db.games.main.push.a = { endpoint, keys: { p256dh: "x", auth: "y" } };
+  localStorage.setItem("dd_localdb", JSON.stringify(db));
+}, OLD);
+await A.reload();
+let renewed;
+for (let i = 0; i < 30; i++) {
+  renewed = (await pushOf(A)).a?.endpoint;
+  if (renewed && renewed !== OLD) break;
+  await A.waitForTimeout(100);
+}
+assert.ok(renewed && renewed !== OLD, "old-key subscription replaced: " + renewed);
+assert.ok(await A.evaluate(async () => {
+  const s = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+  const want = "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4";
+  const b = Uint8Array.from(atob(want.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+  return s.endpoint !== "" && new Uint8Array(s.options.applicationServerKey).every((x, i) => x === b[i]);
+}), "new subscription uses the current key");
 
 await browser.close();
 assert.deepEqual(errors, [], "console errors:\n" + errors.join("\n"));

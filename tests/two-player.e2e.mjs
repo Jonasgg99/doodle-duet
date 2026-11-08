@@ -106,6 +106,18 @@ assert.match(await text(A, ".result-banner"), /definitely not it/);
 assert.equal(await A.locator(".result-banner .note-input").count(), 0, "only the guesser writes");
 assert.equal(await B.getAttribute(".result-banner .note-input", "maxlength"), "120");
 await B.fill(".result-banner .note-input", "Nice drawing!");
+// While Ida is still writing, Jonas switches the words to Hard: her choices are redrawn,
+// her banner and half-written message stay (and keep the keyboard).
+const choicesNow = (p) => p.evaluate(() => window.__dd.game.turns[window.__dd.game.cur].choices);
+assert.ok((await choicesNow(B)).some((c) => c.level !== "hard"), "starts on the default lists");
+await A.click('#word-seg [data-v="hard"]');
+await B.waitForFunction(() => window.__dd.game.turns[window.__dd.game.cur].choices.every((c) => c.level === "hard"));
+const hard = (await choicesNow(B)).map((c) => c.word);
+await B.waitForFunction((w) => [...document.querySelectorAll(".choice .cw")].map((e) => e.textContent).join() === w.join(), hard);
+await B.waitForSelector('#word-seg [data-v="hard"][aria-checked="true"]'); // Ida sees the setting live
+assert.equal(await B.inputValue(".result-banner .note-input"), "Nice drawing!");
+assert.ok(await B.evaluate(() => document.activeElement?.classList.contains("note-input")), "message box keeps focus");
+await shot(B, "08b-hard-words");
 await B.press(".result-banner .note-input", "Enter");
 await B.waitForSelector(".result-banner .rb-note:has-text('Nice drawing!')");
 await A.waitForSelector(".result-banner .rb-note:has-text('Nice drawing!')");
@@ -114,16 +126,7 @@ assert.match(await text(A, "#history"), /definitely not it/);
 await shot(A, "08a-drawer-sees-message");
 await shot(A, "08-drawer-banner");
 
-// --- Round 2: Ida switches words to Hard, her timer runs out (auto-send, no share sheet); Jonas uses up 3 wrong guesses ---
-const choicesNow = (p) => p.evaluate(() => window.__dd.game.turns[window.__dd.game.cur].choices);
-assert.ok((await choicesNow(B)).some((c) => c.level !== "hard"), "starts on the default lists");
-await B.click('#word-seg [data-v="hard"]');
-await B.waitForSelector('#word-seg [data-v="hard"][aria-checked="true"]');
-await B.waitForFunction(() => window.__dd.game.turns[window.__dd.game.cur].choices.every((c) => c.level === "hard"));
-const hard = (await choicesNow(B)).map((c) => c.word);
-await B.waitForFunction((w) => [...document.querySelectorAll(".choice .cw")].map((e) => e.textContent).join() === w.join(), hard);
-await A.waitForSelector('#word-seg [data-v="hard"][aria-checked="true"]'); // Jonas sees the setting live
-await shot(B, "08b-hard-words");
+// --- Round 2 (Hard words): Ida's timer runs out (auto-send, no share sheet); Jonas uses up 3 wrong guesses ---
 await B.locator(".choice").nth(0).click();
 await B.waitForSelector("#draw-canvas");
 await scribble(B);
@@ -172,6 +175,32 @@ await C.waitForSelector("#view-error:not([hidden])");
 
 await A.emulateMedia({ colorScheme: "dark" });
 await shot(A, "11-dark");
+
+// A game link from someone else can't run script: every field is data, numbers included.
+const ctxX = await browser.newContext();
+await ctxX.addInitScript(() => {
+  if (sessionStorage.getItem("dd_uid")) return;
+  const x = '<img src=x onerror="window.__pwned=1">';
+  const t = (n, extra) => ({ n, drawer: "a", word: "cat", strokes: "[]", ...extra });
+  sessionStorage.setItem("dd_uid", "local-victim");
+  localStorage.setItem("dd_localdb", JSON.stringify({
+    games: { evil: {
+      lang: "en", drawSecs: x, cur: "t001",
+      players: { a: { uid: "local-attacker", name: "Eve" }, b: { uid: "local-victim", name: "Jonas" } },
+      turns: {
+        t000: t(0, { status: "done", result: { correct: true, ms: 1000, drawerPts: x, guesserPts: x }, guesses: { k: { g: "dog", t: 5, r: x } } }),
+        t001: t(x, { status: "guess", guessStartedAt: Date.now(), guesses: { k: { g: "dog", t: 5, r: x } } }),
+      },
+    } },
+  }));
+});
+const X = await ctxX.newPage();
+await X.goto(URL0 + "#evil");
+await X.waitForSelector("#guess-list li");
+await X.waitForTimeout(300);
+assert.equal(await X.evaluate(() => window.__pwned), undefined, "hostile game ran script");
+assert.equal(await X.locator("#view-game img").count(), 0, "hostile game injected markup");
+await ctxX.close();
 
 await browser.close();
 assert.deepEqual(errors, [], "console errors:\n" + errors.join("\n"));
