@@ -195,6 +195,10 @@ canvas.art {
 
 .result-banner { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-left: 6px solid var(--good); }
 .result-banner.miss { border-left-color: var(--bad); }
+.result-banner .h-text { flex: 1; }
+.rb-note { font-style: italic; overflow-wrap: anywhere; }
+.note-form { display: flex; gap: 6px; margin-top: 6px; }
+.note-input { flex: 1; min-width: 0; padding: 8px 10px; min-height: 42px; font-size: 1rem; }
 .result-banner .thumb { width: 64px; height: 96px; }
 .rb-head { font: 400 1.6rem/1.1 var(--display); }
 .result-banner.win .rb-head { color: var(--good); }

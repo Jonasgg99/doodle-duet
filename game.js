@@ -54,6 +54,13 @@ export function scoreTurn({ correct, ms, limitMs }) {
 export const MAX_GUESSES = 3;
 export const guessesLeft = (guesses) => Math.max(0, MAX_GUESSES - guesses.filter((g) => g.r === "wrong").length);
 
+// What the guesser tried before getting it (or running out): wrong and close guesses, in order.
+export const missedGuesses = (turn) =>
+  Object.values(turn.guesses || {})
+    .filter((g) => g.r !== "correct")
+    .sort((a, b) => a.t - b.t)
+    .map((g) => g.g);
+
 export const otherSeat = (seat) => (seat === "a" ? "b" : "a");
 
 // Three different words to choose from, from the lists the word setting allows.

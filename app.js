@@ -223,7 +223,11 @@ function renderGame() {
   renderHistory(seat);
 
   const key = pickPanel(seat);
-  if (key === panelKey) return updatePanel(seat);
+  if (key === panelKey) {
+    updatePanel(seat);
+    for (const b of document.querySelectorAll(".result-banner")) fillNote(b, game.turns[b.dataset.key], seat);
+    return;
+  }
   stopSessions();
   panelKey = key;
   const [kind] = key.split(":");
@@ -249,14 +253,45 @@ function resultBanner(seat) {
   const mine = iDrew ? r.drawerPts : r.guesserPts;
   const head = r.correct ? (iDrew ? `${other} got it!` : "You got it!") : iDrew ? `${other} didn't get it` : "Not this time";
   const sub = r.correct ? `"${last.word}" in ${secs(r.ms)} s · +${mine} for you` : `It was "${last.word}". No points this round.`;
+  const missed = G.missedGuesses(last);
+  const key = turnKey(last.n);
   const el = document.createElement("div");
   el.className = `card result-banner ${r.correct ? "win" : "miss"}`;
-  el.innerHTML = `<canvas class="thumb"></canvas><div class="h-text"><strong class="rb-head">${esc(head)}</strong><span class="small">${esc(sub)}</span></div>`;
+  el.dataset.key = key;
+  el.innerHTML = `<canvas class="thumb"></canvas><div class="h-text">
+    <strong class="rb-head">${esc(head)}</strong><span class="small">${esc(sub)}</span>
+    ${missed.length ? `<span class="small muted">${iDrew ? esc(other) + " guessed" : "You guessed"}: ${missed.map(esc).join(" · ")}</span>` : ""}
+    <span class="small rb-note" hidden></span>
+    ${iDrew ? "" : `<form class="note-form" autocomplete="off"><input class="input note-input" maxlength="120" placeholder="Message to ${esc(other)}" enterkeyhint="send"><button class="btn small-btn">Send</button></form>`}
+  </div>`;
+  el.querySelector(".note-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = el.querySelector(".note-input").value.trim().slice(0, 120);
+    if (!text) return;
+    try {
+      await store.update(`games/${gameId}/turns/${key}`, { note: { text, at: store.now() } });
+      fillNote(el, { ...last, note: { text } }, seat);
+    } catch (err) {
+      console.error(err);
+      toast("Couldn't send your message. Check your connection.");
+    }
+  });
+  fillNote(el, last, seat);
   const c = el.querySelector("canvas");
   sizeCanvas(c, 64);
   paint(c, parseStrokes(last.strokes));
   if (r.correct && !iDrew) navigator.vibrate?.([30, 40, 30]);
   return el;
+}
+
+// The guesser's message about a round, shown on the banner once written (live for the drawer).
+const noteLine = (t, seat) => `${t.drawer === seat ? nameOf(game, G.otherSeat(seat)) : "You"}: "${t.note.text}"`;
+function fillNote(el, t, seat) {
+  if (!t?.note?.text) return;
+  const line = el.querySelector(".rb-note");
+  line.textContent = noteLine(t, seat);
+  line.hidden = false;
+  el.querySelector(".note-form")?.remove();
 }
 
 function pickPanel(seat) {
@@ -312,7 +347,7 @@ function renderHistory(seat) {
   const done = turnList(game).filter((t) => t.status === "done").reverse();
   $("#history-wrap").hidden = !done.length;
   const ul = $("#history");
-  const sig = done.map((t) => t.n).join(",");
+  const sig = done.map((t) => t.n + (t.note?.text ?? "")).join(",");
   if (ul.dataset.sig === sig) return;
   ul.dataset.sig = sig;
   ul.innerHTML = "";
@@ -326,9 +361,13 @@ function renderHistory(seat) {
     const outcome = r.correct
       ? `guessed in ${secs(r.ms)} s · +${t.drawer === seat ? r.drawerPts : r.guesserPts} for you`
       : "not guessed";
+    const missed = G.missedGuesses(t);
     li.insertAdjacentHTML(
       "beforeend",
-      `<div class="h-text"><span class="h-word">${esc(t.word)}</span><span class="muted small">${by} · ${outcome}</span></div>`
+      `<div class="h-text"><span class="h-word">${esc(t.word)}</span><span class="muted small">${by} · ${outcome}</span>` +
+        (missed.length ? `<span class="muted small">Missed: ${missed.map(esc).join(" · ")}</span>` : "") +
+        (t.note?.text ? `<span class="small rb-note">${esc(noteLine(t, seat))}</span>` : "") +
+        `</div>`
     );
     ul.append(li);
     sizeCanvas(c, 96);

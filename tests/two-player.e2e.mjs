@@ -101,6 +101,17 @@ await A.waitForSelector(".result-banner");
 assert.match(await text(A, ".result-banner"), /Ida got it/);
 assert.deepEqual(await scores(A), [3, 3]);
 assert.match(await text(A, "#panel"), /Waiting for Ida to draw/);
+// Jonas sees what Ida guessed wrong; Ida leaves him a message from her banner and he sees it live.
+assert.match(await text(A, ".result-banner"), /definitely not it/);
+assert.equal(await A.locator(".result-banner .note-input").count(), 0, "only the guesser writes");
+assert.equal(await B.getAttribute(".result-banner .note-input", "maxlength"), "120");
+await B.fill(".result-banner .note-input", "Nice drawing!");
+await B.press(".result-banner .note-input", "Enter");
+await B.waitForSelector(".result-banner .rb-note:has-text('Nice drawing!')");
+await A.waitForSelector(".result-banner .rb-note:has-text('Nice drawing!')");
+await A.waitForSelector("#history :text('Nice drawing!')");
+assert.match(await text(A, "#history"), /definitely not it/);
+await shot(A, "08a-drawer-sees-message");
 await shot(A, "08-drawer-banner");
 
 // --- Round 2: Ida switches words to Hard, her timer runs out (auto-send, no share sheet); Jonas uses up 3 wrong guesses ---
@@ -131,6 +142,7 @@ assert.match(await text(A, ".result-banner"), /Not this time/);
 await shot(A, "09-out-of-guesses");
 await B.waitForSelector(".result-banner");
 assert.match(await text(B, ".result-banner"), /Jonas didn't get it/);
+assert.match(await text(B, ".result-banner"), /zzz one.*zzz two.*zzz three/s);
 
 // --- Round 3: Ida's guess time runs out ---
 await A.locator(".choice").nth(0).click();

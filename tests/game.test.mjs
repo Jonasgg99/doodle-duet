@@ -17,6 +17,7 @@ import {
   gameIdFromHash,
   wordLevels,
   WORD_SETTINGS,
+  missedGuesses,
 } from "../game.js";
 import { WORDS } from "../words.js";
 
@@ -100,6 +101,12 @@ test("word lists: no word twice in a language, and every word is lower-case word
     assert.deepEqual(all.filter((w, i) => all.indexOf(w) !== i), [], `${lang}: duplicates`);
     for (const w of all) assert.match(w, /^\p{Ll}+( \p{Ll}+)*$/u, `${lang}: "${w}"`);
   }
+});
+
+test("missed guesses: the wrong and close guesses in the order they were made", () => {
+  const turn = { guesses: { k2: { g: "horse", t: 900, r: "close" }, k1: { g: "dog", t: 300, r: "wrong" }, k3: { g: "house", t: 1200, r: "correct" } } };
+  assert.deepEqual(missedGuesses(turn), ["dog", "horse"]);
+  assert.deepEqual(missedGuesses({}), []);
 });
 
 test("game ids are read from links; no id means the main game", () => {
