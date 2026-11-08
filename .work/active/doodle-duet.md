@@ -16,10 +16,11 @@ Two-player async draw-and-guess game for Jonas and his girlfriend, played on And
 - Local mode (no Firebase config): localStorage store with per-tab identity, so two tabs can play each other for testing.
 - Canvas is a 2:3 sheet (1000x1500 logical units) to use tall phone screens; strokes stored as one JSON string per turn to keep RTDB node count low.
 - Scores derived from turn results, never stored separately.
-- Scoring: correct guess gives drawer and guesser the word's difficulty points (easy 1, medium 2, hard 3); guesser +1 if correct before the replay ends. Wrong or timeout: 0.
+- Scoring (Jonas, 2026-11-08: no difficulty yet): correct guess = 1 point each, guesser +1 if correct before the replay ends. Wrong or timeout: 0. Words drawn from easy+medium lists; each choice keeps its `level` so difficulty can return later. Hard lists kept unused.
 - Backend: shared choice-maker Firebase project, data under `doodleDuet/` (Jonas chose this over a new project, 2026-11-08). Console rules = `node tools/combine-rules.mjs` output; regenerate and re-paste whenever either repo's rules change.
 - Hosting: public repo Jonasgg99/doodle-duet, GitHub Pages from main (approved 2026-11-08).
-- Draw time chosen per game (45/60/90 s, default 60). Guess time = draw time + 20 s, starts when the guesser taps Start and keeps running if they leave.
+- Game ids are 6-character codes (no i/l/o/0/1), claimed by transaction so a collision never overwrites a game; link is `#<code>`, plus a code box on home. Trade-off: while seat b is open, anyone signed in who guesses the code can read the game; accepted for a two-person game.
+- Draw time fixed at 60 s (Jonas, 2026-11-08; 45/60/90 picker removed). Guess time = draw time + 20 s, starts when the guesser taps Start and keeps running if they leave.
 
 ## Dead ends
 

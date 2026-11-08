@@ -6,7 +6,7 @@ Two-player, asynchronous draw-and-guess game for Jonas and his girlfriend on And
 - Static site: plain HTML/CSS/JS ES modules, no build step, no npm. Same pattern as `D:\Apps\choice-timer`.
 - `game.js`: pure rules (guess matching, scoring, word picks, replay timing). Covered by `tests/game.test.mjs`.
 - `store.js`: storage with two backends behind one interface. Firebase Realtime Database + anonymous auth when `firebase-config.js` has a config; otherwise local mode (localStorage, one identity per browser tab). `?local` in the URL forces local mode.
-- `app.js`: UI, drawing canvas, replay, routing (`#g=<gameId>`).
+- `app.js`: UI, drawing canvas, replay, routing (`#<gameId>`).
 - `words.js`: English and Norwegian word lists by difficulty.
 - `FIREBASE-RULES.json`: the only access control. Data lives under `doodleDuet/games/<id>`. Editing the file does nothing until it is pasted into the Firebase console (Realtime Database > Rules > Publish).
 - `firebase-config.js` is public by design (Firebase web config), not a secret.
