@@ -33,3 +33,4 @@ Two-player async draw-and-guess game for Jonas and his girlfriend, played on And
 ## Verified
 - unit tests (9) and two-player e2e in local mode (two rounds: correct guess, draw auto-send on timeout, guess timeout; no console errors; no side scroll at 412 px; dark theme) passed @first commit +dirty. Firebase backend and real-phone S Pen input not yet exercised.
 - firebase e2e against https://jonasgg99.github.io/doodle-duet/ (two anonymous identities play a round live; third device refused read and seat write) passed @9d9e75a after Jonas published combined rules. choice-timer itself not re-tested (its rules were pasted unchanged).
+- unit (10), local two-player e2e (incl. joining by typed code) and live firebase e2e on Pages (short code claimed by transaction, reload resume, stranger locked out) passed @5f87409. First live run right after deploy failed at word choice; passed on rerun once all files were served fresh (likely a stale-cache mix, not confirmed).
