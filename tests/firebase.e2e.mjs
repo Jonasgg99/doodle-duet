@@ -52,6 +52,16 @@ assert.match(await B.locator("#panel").innerText(), /You got it/);
 await A.waitForSelector("#continue-btn", T); // drawer sees the outcome live
 assert.match(await A.locator("#panel").innerText(), /got it/);
 
+// Closing and reopening keeps your seat: same anonymous identity, game listed at home.
+await A.reload();
+await A.waitForSelector("#scoreboard .is-me", T);
+assert.match(await A.locator("#scoreboard .is-me").innerText(), /Test A/);
+await A.goto(BASE);
+await A.waitForSelector(".game-list a[href*='#g=']", T);
+await B.reload();
+await B.click("#continue-btn", T); // the unacknowledged result comes back first
+await B.waitForSelector(".choice", T); // then B's turn to draw
+
 const C = await phone("C");
 await C.goto(gameUrl);
 await C.waitForSelector("#view-error:not([hidden])", T);
