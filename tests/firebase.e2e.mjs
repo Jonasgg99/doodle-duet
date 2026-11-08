@@ -57,7 +57,7 @@ await A.reload();
 await A.waitForSelector("#scoreboard .is-me", T);
 assert.match(await A.locator("#scoreboard .is-me").innerText(), /Test A/);
 await A.goto(BASE);
-await A.waitForSelector(".game-list a[href*='#g=']", T);
+await A.waitForSelector(".game-list a[data-id]", T);
 await B.reload();
 await B.click("#continue-btn", T); // the unacknowledged result comes back first
 await B.waitForSelector(".choice", T); // then B's turn to draw
@@ -73,7 +73,7 @@ const stranger = await C.evaluate(async (id) => {
   } catch (e) {
     return String(e.code || e.message);
   }
-}, gameUrl.split("#g=")[1]);
+}, gameUrl.split("#")[1]);
 assert.match(stranger, /permission.denied/i, "stranger must not be able to take a seat");
 
 await browser.close();

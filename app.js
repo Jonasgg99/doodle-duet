@@ -1,4 +1,4 @@
-import { openStore, randomId } from "./store.js";
+import { openStore } from "./store.js";
 import { LANG_NAMES } from "./words.js";
 import * as G from "./game.js";
 
@@ -7,7 +7,6 @@ const W = 1000, H = 1500; // logical canvas size; strokes are stored in these un
 const COLORS = ["#1d1d22", "#e5484d", "#f76b15", "#ffc53d", "#30a46c", "#0090ff", "#8e4ec6", "#8d5b3d", "#ffffff"];
 const ERASER = COLORS.length - 1;
 const SIZES = [6, 14, 34];
-const DIFF_NAMES = ["", "easy", "medium", "hard"];
 
 // ---------- small helpers ----------
 const $ = (s, root = document) => root.querySelector(s);
@@ -61,7 +60,7 @@ let guessing = null; // active guessing session
 let homeWatches = [];
 
 const myGamesKey = () => "dd_games:" + me;
-const prefs = { name: ls.get("dd_name", ""), lang: ls.get("dd_lang", "en"), drawSecs: ls.get("dd_drawSecs", 60) };
+const prefs = { name: ls.get("dd_name", ""), lang: ls.get("dd_lang", "en") };
 
 function remember(id) {
   const list = ls.get(myGamesKey(), []).filter((x) => x !== id);
@@ -109,8 +108,8 @@ function route() {
   homeWatches = [];
   game = null;
   panelKey = null;
-  const m = location.hash.match(/^#g=([a-z0-9]+)$/);
-  if (m) openGame(m[1]);
+  const id = G.gameIdFromHash(location.hash);
+  if (id) openGame(id);
   else showHome();
 }
 
@@ -132,8 +131,13 @@ function setupHome() {
     });
   };
   seg($("#lang-seg"), Object.entries(LANG_NAMES), prefs.lang, (v) => ls.set("dd_lang", (prefs.lang = v)));
-  seg($("#time-seg"), G.DRAW_TIMES.map((s) => [String(s), s + " s"]), String(prefs.drawSecs), (v) => ls.set("dd_drawSecs", (prefs.drawSecs = +v)));
   $("#new-game-btn").addEventListener("click", newGame);
+  $("#join-code-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const id = G.gameIdFromHash($("#join-code").value);
+    if (id) location.hash = id;
+    else toast("That doesn't look like a game code. It's 6 letters and numbers.");
+  });
 }
 
 function showHome() {
@@ -144,7 +148,7 @@ function showHome() {
     ul.innerHTML = `<li class="empty">No games yet. Start one above, or open a link your partner sent you.</li>`;
     return;
   }
-  ul.innerHTML = ids.map((id) => `<li><a href="#g=${id}" data-id="${id}"><span class="gl-title">Loading…</span><span class="gl-status"></span></a></li>`).join("");
+  ul.innerHTML = ids.map((id) => `<li><a href="#${id}" data-id="${id}"><span class="gl-title">Loading…</span><span class="gl-status"></span></a></li>`).join("");
   for (const id of ids) {
     homeWatches.push(
       store.watch(
@@ -172,12 +176,11 @@ function showHome() {
 
 async function newGame() {
   const name = prefs.name || "Player 1";
-  const id = randomId(14);
   const data = {
     v: 1,
     createdAt: store.now(),
     lang: prefs.lang,
-    drawSecs: prefs.drawSecs,
+    drawSecs: G.DRAW_SECS,
     players: { a: { uid: me, name } },
     cur: turnKey(0),
     turns: { [turnKey(0)]: makeTurn(0, "a", new Set(), prefs.lang) },
@@ -185,9 +188,15 @@ async function newGame() {
   const btn = $("#new-game-btn");
   btn.disabled = true;
   try {
-    await store.set("games/" + id, data);
+    // Short codes can collide in theory; claim the code so an existing game is never overwritten.
+    let id = null;
+    for (let i = 0; i < 4 && !id; i++) {
+      const code = G.newGameCode();
+      if (await store.claim("games/" + code, data).catch(() => false)) id = code;
+    }
+    if (!id) throw new Error("no free game code");
     remember(id);
-    location.hash = "g=" + id;
+    location.hash = id;
   } catch (e) {
     console.error(e);
     toast("Couldn't create the game. Try again.");
@@ -338,7 +347,7 @@ function renderHistory(seat) {
       : "not guessed";
     li.insertAdjacentHTML(
       "beforeend",
-      `<div class="h-text"><span class="h-word">${esc(t.word)}</span><span class="muted small">${by} · ${DIFF_NAMES[t.difficulty]} · ${outcome}</span></div>`
+      `<div class="h-text"><span class="h-word">${esc(t.word)}</span><span class="muted small">${by} · ${outcome}</span></div>`
     );
     ul.append(li);
     sizeCanvas(c, 96);
@@ -416,15 +425,9 @@ function panelChoose(panel) {
   panel.innerHTML = `
     <div class="card stack">
       <h2>Pick a word to draw</h2>
-      <p class="muted small">Harder words score more for both of you. The ${game.drawSecs}-second timer starts as soon as you pick.</p>
+      <p class="muted small">The ${game.drawSecs}-second timer starts as soon as you pick.</p>
       <div class="choices">
-        ${t.choices
-          .map(
-            (c, i) => `<button class="choice d${c.difficulty}" data-i="${i}">
-              <span class="cw">${esc(c.word)}</span><span class="cd">${DIFF_NAMES[c.difficulty]} · ${c.difficulty} pt${c.difficulty > 1 ? "s" : ""}</span>
-            </button>`
-          )
-          .join("")}
+        ${t.choices.map((c, i) => `<button class="choice" data-i="${i}"><span class="cw">${esc(c.word)}</span></button>`).join("")}
       </div>
     </div>`;
   panel.querySelector(".choices").addEventListener("click", async (e) => {
@@ -433,7 +436,7 @@ function panelChoose(panel) {
     const c = t.choices[+b.dataset.i];
     for (const x of panel.querySelectorAll("button")) x.disabled = true;
     try {
-      await store.update(`games/${gameId}/turns/${game.cur}`, { word: c.word, difficulty: c.difficulty });
+      await store.update(`games/${gameId}/turns/${game.cur}`, { word: c.word, level: c.level ?? null });
     } catch (err) {
       console.error(err);
       toast("Couldn't save your pick. Check your connection.");
@@ -586,7 +589,7 @@ function panelReady(panel, seat) {
     <div class="card stack center">
       <h2 class="big">${esc(other)} drew something</h2>
       <p>You'll watch it being drawn and can guess any time. You have <strong>${G.guessLimitMs(game.drawSecs) / 1000} seconds</strong> once you start, and it keeps counting if you leave.</p>
-      <p class="muted small">${DIFF_NAMES[t.difficulty]} word · ${t.difficulty} pt${t.difficulty > 1 ? "s" : ""} each if you get it, +1 for you if you get it before the drawing finishes.</p>
+      <p class="muted small">1 point each if you get it, +1 more for you if you get it before the drawing finishes.</p>
       <button class="btn primary big-btn" id="start-guess">Start</button>
     </div>`;
   $("#start-guess").onclick = async (e) => {
@@ -642,7 +645,7 @@ function panelGuess(panel, seat) {
     s.finished = true;
     clearInterval(s.timer);
     const beforeReplayEnd = correct && ms < tl.duration;
-    const pts = G.scoreTurn({ difficulty: t.difficulty, correct, beforeReplayEnd });
+    const pts = G.scoreTurn({ correct, beforeReplayEnd });
     const used = usedWords(game);
     const nextKey = turnKey(t.n + 1);
     const patch = {
@@ -707,6 +710,7 @@ function panelWait(panel, seat) {
     <div class="card stack center">
       <h2>${esc(head)}</h2>
       <p class="muted">${esc(sub)}</p>
+      ${what === "join" ? `<p class="code-line">Game code <span class="code">${esc(gameId)}</span></p><p class="muted small">Or they open ${esc(shortBase())} and type the code.</p>` : ""}
       <p class="muted small" id="wait-extra"></p>
       <button class="btn primary" id="share-btn">${what === "join" ? "Send invite link" : "Nudge " + esc(other)}</button>
       <a href="#" class="btn">All games</a>
@@ -715,10 +719,12 @@ function panelWait(panel, seat) {
   updatePanel(seat);
 }
 
+const shortBase = () => location.host + location.pathname.replace(/index\.html$/, "");
+
 async function share(what) {
-  const url = location.origin + location.pathname + "#g=" + gameId;
+  const url = location.origin + location.pathname.replace(/index\.html$/, "") + "#" + gameId;
   const text = {
-    join: `Play Doodle Duet with me! I've drawn the first one, your turn to guess.`,
+    join: `Play Doodle Duet with me! I've drawn the first one, your turn to guess. Game code: ${gameId}`,
     guess: `My drawing is ready for you to guess in Doodle Duet.`,
     draw: `Your turn to draw in Doodle Duet!`,
   }[what];

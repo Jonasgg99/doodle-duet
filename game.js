@@ -1,15 +1,15 @@
 // Pure game rules. No DOM, no network: tested by tests/game.test.mjs.
 import { WORDS } from "./words.js";
 
-export const DIFFICULTIES = ["easy", "medium", "hard"]; // index + 1 = points
-export const DRAW_TIMES = [45, 60, 90];
+export const WORD_LEVELS = ["easy", "medium"]; // lists words are drawn from; "hard" is kept for later
+export const DRAW_SECS = 60;
 export const MAX_REPLAY_GAP_MS = 1500;
 
 export function normalizeGuess(s) {
   return String(s ?? "")
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "") // strip accents (å becomes a on both sides)
+    .replace(/[\u0300-\u036f]/g, "") // strip accents (å becomes a on both sides)
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 }
@@ -38,20 +38,39 @@ export function checkGuess(guess, word) {
   return "wrong";
 }
 
-export function scoreTurn({ difficulty, correct, beforeReplayEnd }) {
+export function scoreTurn({ correct, beforeReplayEnd }) {
   if (!correct) return { drawer: 0, guesser: 0 };
-  return { drawer: difficulty, guesser: difficulty + (beforeReplayEnd ? 1 : 0) };
+  return { drawer: 1, guesser: 1 + (beforeReplayEnd ? 1 : 0) };
 }
 
 export const otherSeat = (seat) => (seat === "a" ? "b" : "a");
 
+// Three different words to choose from. Each keeps the list it came from (its level),
+// so difficulty can come back later without changing saved games.
 export function pickChoices(lang, used, rng = Math.random) {
   const list = WORDS[lang] ?? WORDS.en;
-  return DIFFICULTIES.map((d, i) => {
-    const fresh = list[d].filter((w) => !used.has(w));
-    const pool = fresh.length ? fresh : list[d];
-    return { word: pool[Math.floor(rng() * pool.length)], difficulty: i + 1 };
-  });
+  const pool = WORD_LEVELS.flatMap((level) => list[level].map((word) => ({ word, level })));
+  const shuffle = (xs) => {
+    for (let i = xs.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [xs[i], xs[j]] = [xs[j], xs[i]];
+    }
+    return xs;
+  };
+  const fresh = shuffle(pool.filter((x) => !used.has(x.word)));
+  const reused = shuffle(pool.filter((x) => used.has(x.word)));
+  return [...fresh, ...reused].slice(0, 3);
+}
+
+const CODE_ABC = "abcdefghjkmnpqrstuvwxyz23456789"; // no i, l, o, 0, 1
+export function newGameCode() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => CODE_ABC[b % CODE_ABC.length]).join("");
+}
+
+// Accepts "#k7m2qp", older "#g=<id>" links, or a typed code. Returns the id or null.
+export function gameIdFromHash(s) {
+  const id = String(s ?? "").trim().replace(/^#/, "").replace(/^g=/, "").toLowerCase();
+  return /^[a-z0-9]{4,20}$/.test(id) ? id : null;
 }
 
 export function totals(turns) {

@@ -11,6 +11,8 @@ import {
   totals,
   guessLimitMs,
   replayTimeline,
+  newGameCode,
+  gameIdFromHash,
 } from "../game.js";
 import { WORDS } from "../words.js";
 
@@ -29,10 +31,10 @@ test("one typo on a longer word is close, not correct", () => {
   assert.equal(checkGuess("", "car"), "wrong");
 });
 
-test("scoring: both score difficulty points on a correct guess, speed bonus for guesser", () => {
-  assert.deepEqual(scoreTurn({ difficulty: 2, correct: true, beforeReplayEnd: false }), { drawer: 2, guesser: 2 });
-  assert.deepEqual(scoreTurn({ difficulty: 3, correct: true, beforeReplayEnd: true }), { drawer: 3, guesser: 4 });
-  assert.deepEqual(scoreTurn({ difficulty: 1, correct: false, beforeReplayEnd: false }), { drawer: 0, guesser: 0 });
+test("scoring: 1 point each on a correct guess, +1 speed bonus for the guesser", () => {
+  assert.deepEqual(scoreTurn({ correct: true, beforeReplayEnd: false }), { drawer: 1, guesser: 1 });
+  assert.deepEqual(scoreTurn({ correct: true, beforeReplayEnd: true }), { drawer: 1, guesser: 2 });
+  assert.deepEqual(scoreTurn({ correct: false, beforeReplayEnd: false }), { drawer: 0, guesser: 0 });
 });
 
 test("turns alternate between seats", () => {
@@ -40,21 +42,32 @@ test("turns alternate between seats", () => {
   assert.equal(otherSeat("b"), "a");
 });
 
-test("word choices: one per difficulty, never a word already used", () => {
+test("word choices: three different unused words from the easy and medium lists, each keeping its level", () => {
   for (const lang of Object.keys(WORDS)) {
-    const used = new Set(WORDS[lang].easy.slice(0, -1)); // only one easy word left
+    const pool = [...WORDS[lang].easy, ...WORDS[lang].medium];
+    const used = new Set(pool.slice(0, -3)); // exactly three words left
     const c = pickChoices(lang, used, Math.random);
     assert.equal(c.length, 3);
-    assert.deepEqual(c.map((x) => x.difficulty), [1, 2, 3]);
-    assert.equal(c[0].word, WORDS[lang].easy.at(-1));
-    for (const x of c) assert.ok(!used.has(x.word));
+    assert.deepEqual(c.map((x) => x.word).sort(), pool.slice(-3).sort());
+    for (const x of c) assert.ok(WORDS[lang][x.level].includes(x.word));
   }
 });
 
-test("word choices fall back to reusing words once a difficulty is exhausted", () => {
-  const used = new Set(WORDS.en.easy);
+test("word choices reuse words once the pool runs low, still three different words", () => {
+  const used = new Set([...WORDS.en.easy, ...WORDS.en.medium]);
   const c = pickChoices("en", used, Math.random);
-  assert.ok(WORDS.en.easy.includes(c[0].word));
+  assert.equal(new Set(c.map((x) => x.word)).size, 3);
+});
+
+test("game codes are short, typeable and parsed from links", () => {
+  const code = newGameCode();
+  assert.match(code, /^[a-hj-km-np-z2-9]{6}$/); // no i, l, o, 0, 1
+  assert.equal(gameIdFromHash("#k7m2qp"), "k7m2qp");
+  assert.equal(gameIdFromHash("#K7M2QP"), "k7m2qp");
+  assert.equal(gameIdFromHash("#g=abcd2345efgh67"), "abcd2345efgh67"); // older long links still work
+  assert.equal(gameIdFromHash(" k7m2qp "), "k7m2qp"); // typed code
+  assert.equal(gameIdFromHash("#"), null);
+  assert.equal(gameIdFromHash("#hello world"), null);
 });
 
 test("totals sum finished turns only", () => {

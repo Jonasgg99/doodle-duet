@@ -39,13 +39,17 @@
           <span class="label" id="lang-label">Words</span>
           <div class="seg" id="lang-seg" role="radiogroup" aria-labelledby="lang-label"></div>
         </div>
-        <div class="field">
-          <span class="label" id="time-label">Drawing time</span>
-          <div class="seg" id="time-seg" role="radiogroup" aria-labelledby="time-label"></div>
-        </div>
         <button id="new-game-btn" class="btn primary">Start a game</button>
-        <p class="muted small">You draw first, then send the link to your partner. They guess, then draw the next one.</p>
+        <p class="muted small">60 seconds per drawing. You draw first, then send the link to your partner. They guess, then draw the next one.</p>
       </div>
+
+      <form class="card stack" id="join-code-form" autocomplete="off">
+        <label class="label" for="join-code">Got a game code?</label>
+        <div class="row">
+          <input id="join-code" class="input code-input" maxlength="20" placeholder="e.g. k7m2qp" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+          <button class="btn" type="submit">Join</button>
+        </div>
+      </form>
 
       <h2 class="section-title">Your games</h2>
       <ul id="game-list" class="game-list"></ul>

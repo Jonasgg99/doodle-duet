@@ -47,7 +47,7 @@ await noSideScroll(A, "home");
 await A.click("#new-game-btn");
 await A.waitForSelector(".choice");
 await shot(A, "02-choose");
-await A.locator(".choice").nth(1).click(); // medium word, 2 pts
+await A.locator(".choice").nth(1).click();
 await A.waitForSelector("#draw-canvas");
 await scribble(A);
 await shot(A, "03-draw");
@@ -56,11 +56,16 @@ await A.click("#done-btn");
 await A.waitForSelector("#share-btn");
 assert.match(await text(A, "#panel"), /Drawing sent/);
 await shot(A, "04-sent");
+assert.match(A.url(), /#[a-z0-9]{6}$/, "short game link");
+const code = A.url().split("#")[1];
+assert.equal(await A.locator(".code").innerText(), code);
 const gameUrl = A.url().replace(/^[^#]*/, URL0);
 
-// --- Ida joins and guesses ---
+// --- Ida types the code on the home screen, joins and guesses ---
 const B = await open("B");
-await B.goto(gameUrl);
+await B.goto(URL0);
+await B.fill("#join-code", code.toUpperCase());
+await B.press("#join-code", "Enter");
 await B.waitForSelector("#join-btn");
 assert.match(await text(B, "#join-title"), /Jonas invited you/);
 await B.fill("#join-name", "Ida");
@@ -86,8 +91,8 @@ await B.waitForSelector(".choice"); // Ida draws next
 await A.waitForSelector("#continue-btn");
 assert.match(await text(A, "#panel"), /Ida got it/);
 const scoresA = await A.$$eval(".pscore", (els) => els.map((e) => +e.textContent));
-assert.equal(scoresA[0], 2, "drawer gets 2 for a medium word");
-assert.ok(scoresA[1] === 2 || scoresA[1] === 3, "guesser gets 2, or 3 with the speed bonus");
+assert.equal(scoresA[0], 1, "drawer gets 1");
+assert.ok(scoresA[1] === 1 || scoresA[1] === 2, "guesser gets 1, or 2 with the speed bonus");
 await shot(A, "08-drawer-result");
 await A.click("#continue-btn");
 await A.waitForSelector("#share-btn");
