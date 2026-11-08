@@ -38,10 +38,19 @@ export function checkGuess(guess, word) {
   return "wrong";
 }
 
-export function scoreTurn({ correct, beforeReplayEnd }) {
+// A correct guess is worth 3, 2 or 1 point in the first, middle or last third of the guess time.
+export const pointsAt = (ms, limitMs) => (ms < limitMs / 3 ? 3 : ms < (2 * limitMs) / 3 ? 2 : 1);
+
+// Drawer and guesser get the same points: a quick guess needs a quick, clear drawing.
+export function scoreTurn({ correct, ms, limitMs }) {
   if (!correct) return { drawer: 0, guesser: 0 };
-  return { drawer: 1, guesser: 1 + (beforeReplayEnd ? 1 : 0) };
+  const p = pointsAt(ms, limitMs);
+  return { drawer: p, guesser: p };
 }
+
+// Wrong guesses allowed per round. A "close" guess (one typo) doesn't use one up.
+export const MAX_GUESSES = 3;
+export const guessesLeft = (guesses) => Math.max(0, MAX_GUESSES - guesses.filter((g) => g.r === "wrong").length);
 
 export const otherSeat = (seat) => (seat === "a" ? "b" : "a");
 

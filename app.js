@@ -227,16 +227,37 @@ function renderGame() {
   setFocusMode(kind === "draw" || kind === "guess");
   const panel = $("#panel");
   panel.innerHTML = "";
-  ({ result: panelResult, choose: panelChoose, draw: panelDraw, ready: panelReady, guess: panelGuess, wait: panelWait })[kind](panel, seat);
+  ({ choose: panelChoose, draw: panelDraw, ready: panelReady, guess: panelGuess, wait: panelWait })[kind](panel, seat);
+  if (kind !== "draw" && kind !== "guess") {
+    const banner = resultBanner(seat);
+    if (banner) panel.prepend(banner);
+  }
+}
+
+// The last finished round's outcome, shown once as a banner on top of the next screen.
+function resultBanner(seat) {
+  const last = turnList(game).filter((x) => x.status === "done").at(-1);
+  const seenKey = `dd_seen:${gameId}:${seat}`;
+  if (!last || last.n <= ls.get(seenKey, -1)) return null;
+  ls.set(seenKey, last.n);
+  const r = last.result;
+  const iDrew = last.drawer === seat;
+  const other = nameOf(game, G.otherSeat(seat));
+  const mine = iDrew ? r.drawerPts : r.guesserPts;
+  const head = r.correct ? (iDrew ? `${other} got it!` : "You got it!") : iDrew ? `${other} didn't get it` : "Not this time";
+  const sub = r.correct ? `"${last.word}" in ${secs(r.ms)} s · +${mine} for you` : `It was "${last.word}". No points this round.`;
+  const el = document.createElement("div");
+  el.className = `card result-banner ${r.correct ? "win" : "miss"}`;
+  el.innerHTML = `<canvas class="thumb"></canvas><div class="h-text"><strong class="rb-head">${esc(head)}</strong><span class="small">${esc(sub)}</span></div>`;
+  const c = el.querySelector("canvas");
+  sizeCanvas(c, 64);
+  paint(c, parseStrokes(last.strokes));
+  if (r.correct && !iDrew) navigator.vibrate?.([30, 40, 30]);
+  return el;
 }
 
 function pickPanel(seat) {
-  const turns = turnList(game);
   const t = curTurn(game);
-  // Show the last finished round's outcome once, before anything else.
-  const last = turns.filter((x) => x.status === "done").at(-1);
-  const seen = ls.get("dd_seen:" + gameId, -1);
-  if (last && last.n > seen) return "result:" + last.n;
   if (t.drawer === seat) {
     if (t.status === "draw") return (t.word ? "draw:" : "choose:") + t.n;
     return "wait:" + t.n + ":" + (game.players.b ? "guess" : "join");
@@ -311,41 +332,6 @@ function stopSessions() {
 function tick() {
   drawing?.tick();
   guessing?.tick();
-}
-
-// ---------- panel: result ----------
-function panelResult(panel, seat) {
-  const n = +panelKey.split(":")[1];
-  const t = game.turns[turnKey(n)];
-  const r = t.result;
-  const iDrew = t.drawer === seat;
-  const other = nameOf(game, G.otherSeat(seat));
-  const mine = iDrew ? r.drawerPts : r.guesserPts;
-  let head, sub;
-  if (r.correct) {
-    head = iDrew ? `${other} got it!` : "You got it!";
-    sub = `"${t.word}" in ${secs(r.ms)} s${r.beforeReplayEnd && !iDrew ? ", before the drawing was even finished" : ""}. +${mine} for you.`;
-  } else {
-    head = iDrew ? `${other} didn't get it` : "Time's up";
-    sub = `The word was "${t.word}". No points this round.`;
-  }
-  const wrong = Object.values(t.guesses || {}).filter((g) => g.r !== "correct").map((g) => g.g);
-  panel.innerHTML = `
-    <div class="card stack center ${r.correct ? "win" : "miss"}">
-      <h2 class="big">${esc(head)}</h2>
-      <p>${esc(sub)}</p>
-      <canvas class="art result-art"></canvas>
-      ${wrong.length ? `<p class="muted small">${iDrew ? "Their" : "Your"} other guesses: ${wrong.map(esc).join(", ")}</p>` : ""}
-      <button class="btn primary" id="continue-btn">Continue</button>
-    </div>`;
-  const c = $(".result-art", panel);
-  sizeCanvas(c);
-  paint(c, parseStrokes(t.strokes), Infinity);
-  if (r.correct && !iDrew) navigator.vibrate?.([30, 40, 30]);
-  $("#continue-btn").onclick = () => {
-    ls.set("dd_seen:" + gameId, n);
-    renderGame();
-  };
 }
 
 // ---------- panel: choose a word ----------
@@ -469,9 +455,10 @@ function panelDraw(panel) {
     }
   };
   const doneBtn = $("#done-btn");
-  doneBtn.onclick = () => submit();
+  doneBtn.onclick = () => submit(true);
 
-  async function submit() {
+  // byTap: sent with the Send button, so the share sheet may open (it needs a fresh tap).
+  async function submit(byTap = false) {
     if (s.sent) return;
     s.sent = true;
     s.active = null;
@@ -486,7 +473,8 @@ function panelDraw(panel) {
         status: "guess",
       });
       keepAwake(false);
-      toast("Sent! Now let your partner know.");
+      if (byTap) share(game.players.b ? "guess" : "join", { auto: true });
+      else toast("Time's up, drawing sent. Tap Nudge to tell your partner.");
     } catch (err) {
       console.error(err);
       s.sent = false;
@@ -501,10 +489,7 @@ function panelDraw(panel) {
     $("#draw-timer").textContent = secs(left);
     $("#draw-timer").classList.toggle("urgent", left < 10000);
     $("#draw-bar").style.transform = `scaleX(${Math.max(0, left / limit)})`;
-    if (left <= 0) {
-      toast("Time's up! Sending your drawing.");
-      submit();
-    }
+    if (left <= 0) submit();
   };
   s.timer = setInterval(s.tick, 200);
   s.tick();
@@ -518,7 +503,7 @@ function panelReady(panel, seat) {
     <div class="card stack center">
       <h2 class="big">${esc(other)} drew something</h2>
       <p>You'll watch it being drawn and can guess any time. You have <strong>${G.guessLimitMs(game.drawSecs) / 1000} seconds</strong> once you start, and it keeps counting if you leave.</p>
-      <p class="muted small">1 point each if you get it, +1 more for you if you get it before the drawing finishes.</p>
+      <p class="muted small">You get ${G.MAX_GUESSES} wrong guesses. A quick guess is worth more: 3, 2 or 1 point, the same for both of you.</p>
       <button class="btn primary big-btn" id="start-guess">Start</button>
     </div>`;
   $("#start-guess").onclick = async (e) => {
@@ -550,6 +535,7 @@ function panelGuess(panel, seat) {
       <div class="timer" id="guess-timer"></div>
     </div>
     <div class="timebar"><div class="timebar-fill" id="guess-bar"></div></div>
+    <div class="guess-meta"><span id="guess-worth"></span><span id="guess-left"></span></div>
     <div class="canvas-box"><canvas class="art" id="guess-canvas"></canvas></div>
     <form class="guess-form" id="guess-form" autocomplete="off">
       <input class="input" id="guess-input" placeholder="Type a guess" enterkeyhint="send" autocapitalize="off" autocorrect="off" spellcheck="false">
@@ -564,22 +550,31 @@ function panelGuess(panel, seat) {
   const elapsed = () => store.now() - t.guessStartedAt;
 
   const list = $("#guess-list");
-  const addGuess = (g) => list.insertAdjacentHTML("afterbegin", `<li class="g-${g.r}">${esc(g.g)}${g.r === "close" ? " <em>so close!</em>" : ""}</li>`);
+  const made = [];
+  const showLeft = () => {
+    const n = G.guessesLeft(made);
+    $("#guess-left").textContent = `${n} wrong guess${n === 1 ? "" : "es"} left`;
+  };
+  const addGuess = (g) => {
+    made.push(g);
+    list.insertAdjacentHTML("afterbegin", `<li class="g-${g.r}">${esc(g.g)}${g.r === "close" ? " <em>so close!</em>" : ""}</li>`);
+    showLeft();
+  };
   Object.values(t.guesses || {})
     .sort((a, b) => a.t - b.t)
     .forEach(addGuess);
+  showLeft();
 
   async function finish(correct, ms) {
     if (s.finished) return;
     s.finished = true;
     clearInterval(s.timer);
-    const beforeReplayEnd = correct && ms < tl.duration;
-    const pts = G.scoreTurn({ correct, beforeReplayEnd });
+    const pts = G.scoreTurn({ correct, ms, limitMs: limit });
     const used = usedWords(game);
     const nextKey = turnKey(t.n + 1);
     const patch = {
       [`turns/${key}/status`]: "done",
-      [`turns/${key}/result`]: { correct, ms: Math.round(ms), beforeReplayEnd, drawerPts: pts.drawer, guesserPts: pts.guesser },
+      [`turns/${key}/result`]: { correct, ms: Math.round(ms), drawerPts: pts.drawer, guesserPts: pts.guesser },
       [`turns/${nextKey}`]: makeTurn(t.n + 1, seat, used, game.lang),
       cur: nextKey,
     };
@@ -607,6 +602,7 @@ function panelGuess(panel, seat) {
     addGuess(g);
     store.update(`games/${gameId}/turns/${key}/guesses`, { [store.newKey()]: g }).catch(console.error);
     if (r === "correct") finish(true, ms);
+    else if (G.guessesLeft(made) === 0) finish(false, ms);
     else if (r === "close") navigator.vibrate?.(20);
   });
 
@@ -617,12 +613,14 @@ function panelGuess(panel, seat) {
     $("#guess-timer").textContent = secs(left);
     $("#guess-timer").classList.toggle("urgent", left < 10000);
     $("#guess-bar").style.transform = `scaleX(${Math.max(0, left / limit)})`;
+    $("#guess-worth").textContent = `Worth ${G.pointsAt(ms, limit)} now`;
     paintReplay(canvas, strokes, tl, ms);
     if (left <= 0) finish(false, limit);
   };
   s.timer = setInterval(s.tick, 50);
   s.tick();
-  if (elapsed() < limit) $("#guess-input").focus({ preventScroll: true });
+  if (G.guessesLeft(made) === 0) finish(false, Math.min(elapsed(), limit));
+  else if (elapsed() < limit) $("#guess-input").focus({ preventScroll: true });
 }
 
 // ---------- panel: waiting ----------
@@ -649,7 +647,8 @@ function panelWait(panel, seat) {
 
 const gameLink = () => location.origin + location.pathname.replace(/index\.html$/, "") + (gameId === MAIN_GAME ? "" : "#" + gameId);
 
-async function share(what) {
+// auto: opened right after Send. Only the share sheet, and nothing on failure (the Nudge button stays).
+async function share(what, { auto = false } = {}) {
   const url = gameLink();
   const text = {
     join: `Play Doodle Duet with me! I've drawn the first one, your turn to guess.`,
@@ -661,9 +660,10 @@ async function share(what) {
       await navigator.share({ title: "Doodle Duet", text, url });
       return;
     } catch (e) {
-      if (e.name === "AbortError") return;
+      if (e.name === "AbortError" || auto) return;
     }
   }
+  if (auto) return;
   try {
     await navigator.clipboard.writeText(text + " " + url);
     toast("Link copied. Paste it in a message.");

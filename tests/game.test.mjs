@@ -11,6 +11,9 @@ import {
   totals,
   guessLimitMs,
   replayTimeline,
+  pointsAt,
+  guessesLeft,
+  MAX_GUESSES,
   gameIdFromHash,
 } from "../game.js";
 import { WORDS } from "../words.js";
@@ -30,10 +33,26 @@ test("one typo on a longer word is close, not correct", () => {
   assert.equal(checkGuess("", "car"), "wrong");
 });
 
-test("scoring: 1 point each on a correct guess, +1 speed bonus for the guesser", () => {
-  assert.deepEqual(scoreTurn({ correct: true, beforeReplayEnd: false }), { drawer: 1, guesser: 1 });
-  assert.deepEqual(scoreTurn({ correct: true, beforeReplayEnd: true }), { drawer: 1, guesser: 2 });
-  assert.deepEqual(scoreTurn({ correct: false, beforeReplayEnd: false }), { drawer: 0, guesser: 0 });
+test("scoring: a faster correct guess is worth more, the same for drawer and guesser", () => {
+  const limitMs = 90_000; // thirds at 30 s and 60 s
+  const pts = (ms, correct = true) => scoreTurn({ correct, ms, limitMs });
+  assert.deepEqual(pts(0), { drawer: 3, guesser: 3 });
+  assert.deepEqual(pts(29_999), { drawer: 3, guesser: 3 });
+  assert.deepEqual(pts(30_000), { drawer: 2, guesser: 2 });
+  assert.deepEqual(pts(59_999), { drawer: 2, guesser: 2 });
+  assert.deepEqual(pts(60_000), { drawer: 1, guesser: 1 });
+  assert.deepEqual(pts(89_999), { drawer: 1, guesser: 1 });
+  assert.deepEqual(pts(1_000, false), { drawer: 0, guesser: 0 });
+  assert.equal(pointsAt(0, limitMs), 3);
+  assert.equal(pointsAt(75_000, limitMs), 1);
+});
+
+test("three wrong guesses per round; a close guess doesn't use one up", () => {
+  assert.equal(MAX_GUESSES, 3);
+  assert.equal(guessesLeft([]), 3);
+  assert.equal(guessesLeft([{ r: "wrong" }, { r: "close" }]), 2);
+  assert.equal(guessesLeft([{ r: "wrong" }, { r: "wrong" }, { r: "close" }, { r: "wrong" }]), 0);
+  assert.equal(guessesLeft([{ r: "wrong" }, { r: "wrong" }, { r: "wrong" }, { r: "wrong" }]), 0);
 });
 
 test("turns alternate between seats", () => {

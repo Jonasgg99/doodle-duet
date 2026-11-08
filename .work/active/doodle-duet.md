@@ -27,7 +27,6 @@ Two-player async draw-and-guess game for Jonas and his girlfriend, played on And
 ## Dead ends
 
 ## Next
-- Build the streamline + challenge set (Decisions), tests first; deploy and verify live.
 - Then wait for Jonas's verdict from real-phone play; fix what he reports. Then finish: move lasting notes to AGENTS.md and delete this file.
 - Real game `main` exists live: Jonas is player a and has drawn turn 0; seat b waits for his girlfriend. Tests must never use the plain URL in Firebase mode.
 
@@ -40,3 +39,4 @@ Two-player async draw-and-guess game for Jonas and his girlfriend, played on And
 - unit (10), local two-player e2e (incl. joining by typed code) and live firebase e2e on Pages (short code claimed by transaction, reload resume, stranger locked out) passed @5f87409. First live run right after deploy failed at word choice; passed on rerun once all files were served fresh (likely a stale-cache mix, not confirmed).
 - single shared game: unit (10), local two-player e2e (both open the plain site; third tab locked out; reopen lands in game) and live firebase e2e on localhost (throwaway id) passed @c83b4d0+dirty. One live run timed out at the partner's reload and passed on rerun (network was flaky: an earlier push and page load also timed out).
 - Stuck on Loading after deploy reproduced (new index.html + previous app.js -> TypeError in setupHome); self-heal added; stale-deploy e2e, unit, local and live tests passed @e3527b6+dirty.
+- Streamline + challenge set: unit (11), local three-round e2e (share sheet on Send but not on auto-send, banners, 3-wrong-guess loss, time-out loss, 3/2/1 points), stale-deploy and live firebase e2e on localhost passed @8430967+dirty.

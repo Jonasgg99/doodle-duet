@@ -157,7 +157,6 @@ canvas.art {
   background: #fff; border-radius: var(--r); box-shadow: var(--shadow);
   touch-action: none; user-select: none; -webkit-user-select: none;
 }
-.result-art { max-width: 300px; }
 
 .tools { display: flex; flex-direction: column; gap: 8px; }
 .swatches { display: flex; justify-content: space-between; gap: 4px; }
@@ -189,6 +188,16 @@ canvas.art {
 
 .win h2 { color: var(--good); }
 .miss h2 { color: var(--bad); }
+
+.guess-meta { display: flex; justify-content: space-between; gap: 12px; font-size: .85rem; font-weight: 600; color: var(--muted); }
+#guess-worth { color: var(--accent); }
+
+.result-banner { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-left: 6px solid var(--good); }
+.result-banner.miss { border-left-color: var(--bad); }
+.result-banner .thumb { width: 64px; height: 96px; }
+.rb-head { font: 400 1.6rem/1.1 var(--display); }
+.result-banner.win .rb-head { color: var(--good); }
+.result-banner.miss .rb-head { color: var(--bad); }
 
 /* history */
 .history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }

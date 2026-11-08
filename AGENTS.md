@@ -12,7 +12,7 @@ Two-player, asynchronous draw-and-guess game for Jonas and his girlfriend on And
 - `firebase-config.js` is public by design (Firebase web config), not a secret.
 
 ## Data model
-`games/<id>` (`main` for the real game; older ids still open via `#<id>` or `#g=<id>`): `lang`, `drawSecs` (always 60 for new games), `players.{a,b}.{uid,name}`, `cur` (current turn key), `turns.t000…`. A turn has `drawer`, `status` (`draw` → `guess` → `done`), `choices` (`{word, level}`), `word`, `level` (word list it came from; older turns have `difficulty` instead), `strokes` (JSON string of `{c,w,p:[x,y,t,…]}` on a 1000×1500 grid), `guessStartedAt`, `guesses`, `result`. Scores are derived from turn results, never stored. Difficulty is not used in play yet: words come from the easy and medium lists, scoring is flat; the hard lists stay in `words.js` for later.
+`games/<id>` (`main` for the real game; older ids still open via `#<id>` or `#g=<id>`): `lang`, `drawSecs` (always 60 for new games), `players.{a,b}.{uid,name}`, `cur` (current turn key), `turns.t000…`. A turn has `drawer`, `status` (`draw` → `guess` → `done`), `choices` (`{word, level}`), `word`, `level` (word list it came from; older turns have `difficulty` instead), `strokes` (JSON string of `{c,w,p:[x,y,t,…]}` on a 1000×1500 grid), `guessStartedAt`, `guesses` (`{g, t, r}`, r = correct/close/wrong), `result` (`{correct, ms, drawerPts, guesserPts}`; older rounds also have `beforeReplayEnd`). Scores are derived from turn results, never stored. Difficulty is not used in play yet: words come from the easy and medium lists, scoring is flat; the hard lists stay in `words.js` for later.
 
 ## Testing
 - Unit: `node --test "tests/*.test.mjs"`

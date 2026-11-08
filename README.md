@@ -4,14 +4,14 @@ A two-player drawing game you play at your own pace. One of you picks a word and
 
 ## Rules
 - The drawer picks one of three words and has 60 seconds to draw it. The drawing is sent automatically when time runs out.
-- The guesser taps Start and gets 80 seconds. The clock keeps running if they leave the app.
-- A correct guess gives both players 1 point. The guesser gets +1 for guessing before the replay finishes.
+- The guesser taps Start and gets 80 seconds and 3 wrong guesses. The clock keeps running if they leave the app. A "so close" guess (one letter off) doesn't count as wrong.
+- A correct guess is worth 3 points in the first third of the guess time, 2 in the middle and 1 at the end, the same for both players. So a quick, clear drawing pays off too.
 - Whoever guessed draws next.
 
 ## Playing on Android
 Open the game link in Chrome (or Samsung Internet) and use **Add to home screen / Install app** from the browser menu. It then runs full screen like an app. Works with the S Pen; once the pen has touched the canvas, finger and palm touches are ignored for that drawing.
 
-The site is one shared game for the two of you: **jonasgg99.github.io/doodle-duet**. The first person to open it enters a name, picks a language, taps **Start** and draws. The second person opens the same address and taps **Join game**. After that nobody else can get in. After each turn, use the Nudge button to send them a message.
+The site is one shared game for the two of you: **jonasgg99.github.io/doodle-duet**. The first person to open it enters a name, picks a language, taps **Start** and draws. The second person opens the same address and taps **Join game**. After that nobody else can get in. Tapping Send after drawing opens your phone's share sheet so you can tell your partner straight away; if the timer sent the drawing for you, use the Nudge button.
 
 Each phone is identified by the browser's anonymous sign-in. Clearing the browser's site data for the game loses your seat in existing games.
 

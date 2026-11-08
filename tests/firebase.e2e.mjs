@@ -48,19 +48,18 @@ await B.waitForSelector("#guess-canvas", T);
 const word = await B.evaluate(() => window.__dd.game.turns[window.__dd.game.cur].word);
 await B.fill("#guess-input", word);
 await B.press("#guess-input", "Enter");
-await B.waitForSelector("#continue-btn", T);
-assert.match(await B.locator("#panel").innerText(), /You got it/);
+await B.waitForSelector(".result-banner", T);
+assert.match(await B.locator(".result-banner").innerText(), /You got it/);
 
-await A.waitForSelector("#continue-btn", T); // drawer sees the outcome live
-assert.match(await A.locator("#panel").innerText(), /got it/);
+await A.waitForSelector(".result-banner", T); // drawer sees the outcome live
+assert.match(await A.locator(".result-banner").innerText(), /got it/);
 
 // Closing and reopening keeps your seat: same anonymous identity.
 await A.reload();
 await A.waitForSelector("#scoreboard .is-me", T);
 assert.match(await A.locator("#scoreboard .is-me").innerText(), /Test A/);
 await B.reload();
-await B.click("#continue-btn", T); // the unacknowledged result comes back first
-await B.waitForSelector(".choice", T); // then B's turn to draw
+await B.waitForSelector(".choice", T); // B's turn to draw survives a reload
 
 const C = await phone("C");
 await C.goto(gameUrl);

@@ -1,5 +1,6 @@
 // Two-player end-to-end test in local mode: two headless "phones" share one browser
-// context (shared localStorage, separate per-tab identities) and play two full rounds.
+// context (shared localStorage, separate per-tab identities) and play three rounds:
+// a quick correct guess, a round lost on three wrong guesses, and one lost on time.
 // Needs a static server on :8124 (python -m http.server 8124) and Playwright, which this
 // repo doesn't install: set PLAYWRIGHT to a playwright/index.mjs (defaults to quiz-maker's).
 // Run: node tests/two-player.e2e.mjs [screenshot-dir]
@@ -14,6 +15,11 @@ const errors = [];
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 412, height: 892 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+// Record share-sheet calls instead of opening one.
+await ctx.addInitScript(() => {
+  window.__shares = [];
+  navigator.share = async (data) => void window.__shares.push(data);
+});
 const open = async (label) => {
   const p = await ctx.newPage();
   p.on("console", (m) => m.type() === "error" && errors.push(`${label}: ${m.text()}`));
@@ -23,6 +29,8 @@ const open = async (label) => {
 };
 const shot = (p, name) => shots && p.screenshot({ path: `${shots}/${name}.png` });
 const text = (p, sel) => p.locator(sel).innerText();
+const shares = (p) => p.evaluate(() => window.__shares);
+const scores = (p) => p.$$eval(".pscore", (els) => els.map((e) => +e.textContent));
 const noSideScroll = async (p, where) =>
   assert.ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `horizontal scroll on ${where}`);
 
@@ -37,8 +45,12 @@ async function scribble(p) {
     await p.clock.runFor(300);
   }
 }
+async function guess(p, word) {
+  await p.fill("#guess-input", word);
+  await p.press("#guess-input", "Enter");
+}
 
-// --- Round 1: Jonas opens the plain site, sets up the one game and draws ---
+// --- Round 1: Jonas sets up the game, draws, and Send opens the share sheet ---
 const A = await open("A");
 await A.goto(URL0);
 await A.fill("#name-input", "Jonas");
@@ -55,65 +67,80 @@ await noSideScroll(A, "draw");
 await A.click("#done-btn");
 await A.waitForSelector("#share-btn");
 assert.match(await text(A, "#panel"), /Drawing sent/);
+const s1 = await shares(A);
+assert.equal(s1.length, 1, "Send opened the share sheet");
+assert.equal(s1[0].url, "http://localhost:8124/");
+assert.match(s1[0].text, /your turn to guess/);
 await shot(A, "04-sent");
-assert.ok(!A.url().includes("#"), "no game code in the link");
-assert.match(await A.locator(".link-line").innerText(), /^localhost:8124\/$/); // the plain site, nothing to type
 
-// --- Ida opens the same plain site, joins and guesses ---
+// --- Ida joins and guesses quickly: worth 3 each ---
 const B = await open("B");
 await B.goto(URL0);
-await B.waitForSelector("#join-btn");
-assert.match(await text(B, "#join-title"), /Jonas invited you/);
 await B.fill("#join-name", "Ida");
 await B.click("#join-btn");
 await B.waitForSelector("#start-guess");
+assert.match(await text(B, "#panel"), /3 wrong guesses/);
 await shot(B, "05-ready");
 await B.click("#start-guess");
 await B.waitForSelector("#guess-canvas");
 await B.clock.runFor(400);
+assert.match(await text(B, "#guess-worth"), /Worth 3/);
+assert.match(await text(B, "#guess-left"), /^3 wrong guesses left/);
+await guess(B, "definitely not it");
+assert.match(await text(B, "#guess-left"), /^2 wrong guesses left/);
 await shot(B, "06-guessing");
 const word1 = await B.evaluate(() => window.__dd.game.turns.t000.word);
-await B.fill("#guess-input", "definitely not it");
-await B.press("#guess-input", "Enter");
-await B.fill("#guess-input", word1.toUpperCase());
-await B.press("#guess-input", "Enter");
-await B.waitForSelector("#continue-btn");
-assert.match(await text(B, "#panel"), /You got it/);
-await shot(B, "07-got-it");
-await B.click("#continue-btn");
-await B.waitForSelector(".choice"); // Ida draws next
+await guess(B, word1.toUpperCase());
+// No result screen: Ida lands on her word choice with the result on top.
+await B.waitForSelector(".choice");
+assert.match(await text(B, ".result-banner"), /You got it/);
+assert.match(await text(B, ".result-banner"), /\+3 for you/);
+await shot(B, "07-got-it-banner");
 
-// Jonas sees the outcome and the score
-await A.waitForSelector("#continue-btn");
-assert.match(await text(A, "#panel"), /Ida got it/);
-const scoresA = await A.$$eval(".pscore", (els) => els.map((e) => +e.textContent));
-assert.equal(scoresA[0], 1, "drawer gets 1");
-assert.ok(scoresA[1] === 1 || scoresA[1] === 2, "guesser gets 1, or 2 with the speed bonus");
-await shot(A, "08-drawer-result");
-await A.click("#continue-btn");
-await A.waitForSelector("#share-btn");
+await A.waitForSelector(".result-banner");
+assert.match(await text(A, ".result-banner"), /Ida got it/);
+assert.deepEqual(await scores(A), [3, 3]);
 assert.match(await text(A, "#panel"), /Waiting for Ida to draw/);
+await shot(A, "08-drawer-banner");
 
-// --- Round 2: Ida's draw timer runs out (auto-send), Jonas's guess timer runs out ---
+// --- Round 2: Ida's timer runs out (auto-send, no share sheet); Jonas uses up 3 wrong guesses ---
 await B.locator(".choice").nth(0).click();
 await B.waitForSelector("#draw-canvas");
 await scribble(B);
 await B.clock.runFor(61_000);
 await B.waitForSelector("#share-btn");
 assert.match(await text(B, "#panel"), /Waiting for Jonas to guess/);
+assert.equal((await shares(B)).length, 0, "auto-send can't open the share sheet");
 
 await A.waitForSelector("#start-guess");
 await A.click("#start-guess");
 await A.waitForSelector("#guess-canvas");
-await A.clock.runFor(81_000);
-await A.waitForSelector("#continue-btn");
-assert.match(await text(A, "#panel"), /Time's up/);
-await shot(A, "09-times-up");
-await A.click("#continue-btn");
-await A.waitForSelector(".choice"); // Jonas draws round 3
-assert.match(await text(A, "#scoreboard"), /round 3/i);
+for (const w of ["zzz one", "zzz two", "zzz three"]) await guess(A, w);
+await A.waitForSelector(".choice"); // round over, Jonas draws next
+assert.match(await text(A, ".result-banner"), /Not this time/);
+await shot(A, "09-out-of-guesses");
+await B.waitForSelector(".result-banner");
+assert.match(await text(B, ".result-banner"), /Jonas didn't get it/);
+
+// --- Round 3: Ida's guess time runs out ---
+await A.locator(".choice").nth(0).click();
+await A.waitForSelector("#draw-canvas");
+await scribble(A);
+await A.click("#done-btn");
+await A.waitForSelector("#share-btn");
+await B.waitForSelector("#start-guess");
+await B.click("#start-guess");
+await B.waitForSelector("#guess-canvas");
+await B.clock.runFor(81_000);
+await B.waitForSelector(".choice");
+assert.match(await text(B, ".result-banner"), /Not this time/);
+assert.deepEqual(await scores(B), [3, 3]);
+assert.match(await text(B, "#scoreboard"), /round 4/i);
+
+// Reopening lands straight in the game; the banner isn't shown twice.
 await A.reload();
-await A.waitForSelector(".choice"); // reopening the site lands straight in the game
+await A.waitForSelector("#share-btn");
+assert.equal(await A.locator(".result-banner").count(), 0);
 await shot(A, "10-reopened");
 
 // A third tab is locked out of the game
@@ -121,7 +148,6 @@ const C = await open("C");
 await C.goto(URL0);
 await C.waitForSelector("#view-error:not([hidden])");
 
-// Dark theme
 await A.emulateMedia({ colorScheme: "dark" });
 await shot(A, "11-dark");
 
