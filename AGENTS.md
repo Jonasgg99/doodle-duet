@@ -1,0 +1,20 @@
+# Doodle Duet
+
+Two-player, asynchronous draw-and-guess game for Jonas and his girlfriend on Android phones. Private, not for wider release. Installable PWA.
+
+## Architecture
+- Static site: plain HTML/CSS/JS ES modules, no build step, no npm. Same pattern as `D:\Apps\choice-timer`.
+- `game.js`: pure rules (guess matching, scoring, word picks, replay timing). Covered by `tests/game.test.mjs`.
+- `store.js`: storage with two backends behind one interface. Firebase Realtime Database + anonymous auth when `firebase-config.js` has a config; otherwise local mode (localStorage, one identity per browser tab). `?local` in the URL forces local mode.
+- `app.js`: UI, drawing canvas, replay, routing (`#g=<gameId>`).
+- `words.js`: English and Norwegian word lists by difficulty.
+- `FIREBASE-RULES.json`: the only access control. Data lives under `doodleDuet/games/<id>`. Editing the file does nothing until it is pasted into the Firebase console (Realtime Database > Rules > Publish).
+- `firebase-config.js` is public by design (Firebase web config), not a secret.
+
+## Data model
+`games/<id>`: `lang`, `drawSecs`, `players.{a,b}.{uid,name}`, `cur` (current turn key), `turns.t000…`. A turn has `drawer`, `status` (`draw` → `guess` → `done`), `choices`, `word`, `difficulty`, `strokes` (JSON string of `{c,w,p:[x,y,t,…]}` on a 1000×1500 grid), `guessStartedAt`, `guesses`, `result`. Scores are derived from turn results, never stored.
+
+## Testing
+- Unit: `node --test "tests/*.test.mjs"`
+- Two-player end to end (local mode, headless, two simulated phones): start `python -m http.server 8124`, then `node tests/two-player.e2e.mjs [screenshot-dir]`. Uses Playwright from `D:\Apps\quiz-maker` (override with `PLAYWRIGHT=<path to index.mjs>`); this repo installs nothing.
+- In Firebase mode two tabs in one browser share one identity; use local mode or two browser profiles to play yourself.

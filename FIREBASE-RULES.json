@@ -1,0 +1,17 @@
+{
+  "rules": {
+    "doodleDuet": {
+      "games": {
+        "$g": {
+          ".read": "auth != null && (!data.exists() || !data.child('players/b').exists() || data.child('players/a/uid').val() === auth.uid || data.child('players/b/uid').val() === auth.uid)",
+          ".write": "auth != null && ((!data.exists() && newData.child('players/a/uid').val() === auth.uid) || data.child('players/a/uid').val() === auth.uid || data.child('players/b/uid').val() === auth.uid)",
+          "players": {
+            "b": {
+              ".write": "auth != null && !data.exists() && newData.child('uid').val() === auth.uid"
+            }
+          }
+        }
+      }
+    }
+  }
+}
