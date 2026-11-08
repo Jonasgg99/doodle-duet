@@ -136,7 +136,8 @@ a { color: var(--accent); }
 .choice:active { border-color: var(--accent); }
 
 /* draw + guess */
-body.focus .topbar, body.focus .scoreboard, body.focus .history-wrap { display: none; }
+body.focus .topbar, body.focus .scoreboard, body.focus .history-wrap, body.focus .word-setting { display: none; }
+.word-setting { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
 body.focus main { padding-block: 8px 8px; }
 .panel { display: flex; flex-direction: column; gap: 10px; }
 .draw-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }

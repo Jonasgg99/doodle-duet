@@ -7,6 +7,7 @@ A two-player drawing game you play at your own pace. One of you picks a word and
 - The guesser taps Start and gets 80 seconds and 3 wrong guesses. The clock keeps running if they leave the app. A "so close" guess (one letter off) doesn't count as wrong.
 - A correct guess is worth 3 points in the first third of the guess time, 2 in the middle and 1 at the end, the same for both players. So a quick, clear drawing pays off too.
 - Whoever guessed draws next.
+- **Words** under the game sets how hard the words are: Easy, Mixed (the default) or Hard. Either of you can change it any time; it applies to the next word choice. The lists include some adult words.
 
 ## Playing on Android
 Open the game link in Chrome (or Samsung Internet) and use **Add to home screen / Install app** from the browser menu. It then runs full screen like an app. Works with the S Pen; once the pen has touched the canvas, finger and palm touches are ignored for that drawing.

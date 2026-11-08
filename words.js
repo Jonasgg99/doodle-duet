@@ -1,4 +1,5 @@
-// Word lists by language and difficulty. Easy = 1 point, medium = 2, hard = 3.
+// Word lists by language and difficulty (easy, medium, hard). The game's word setting picks
+// which lists are used; a word's level doesn't change its points.
 export const WORDS = {
   en: {
     easy: [
@@ -49,5 +50,33 @@ export const WORDS = {
     ],
   },
 };
+
+// Adult words (Jonas, 2026-11-08: "include dirty words in the word lists"), mixed into the
+// lists above by how hard they are to draw. Delete this block to make the game clean again.
+const ADULT = {
+  en: {
+    easy: ["bra", "boobs", "butt", "thong", "condom", "naked", "whip", "handcuffs", "nipple", "penis", "lube", "dildo", "vibrator", "blindfold", "horny", "hickey"],
+    medium: [
+      "lingerie", "stripper", "pole dance", "lap dance", "skinny dipping", "strip poker", "booty call", "quickie", "threesome", "spanking",
+      "foreplay", "doggy style", "cowgirl", "missionary", "boner", "french kiss", "make out", "sex toy", "strip club", "safe word",
+    ],
+    hard: [
+      "one night stand", "walk of shame", "morning wood", "sixty nine", "orgasm", "bondage", "nudist beach",
+      "wet dream", "shower sex", "naughty nurse", "dirty talk", "mile high club", "body shots", "chastity belt",
+    ],
+  },
+  no: {
+    easy: ["bh", "pupper", "rumpe", "string", "kondom", "naken", "pisk", "håndjern", "brystvorte", "penis", "glidemiddel", "dildo", "vibrator", "sugemerke", "kåt"],
+    medium: [
+      "reizeundertøy", "stripper", "stangdans", "fangdans", "nakenbading", "strippepoker", "ligg", "trekant", "ris på rumpa", "forspill",
+      "doggy", "rytterstilling", "misjonærstilling", "ståpikk", "tungekyss", "klining", "sexleketøy", "strippeklubb", "safeord", "bind for øynene",
+    ],
+    hard: [
+      "engangsligg", "sekstini", "orgasme", "bondage", "nakenstrand", "våt drøm", "dusjsex",
+      "frekk sykepleier", "skittenprat", "pornoblad", "bryllupsnatt", "kyskhetsbelte", "trusetyv",
+    ],
+  },
+};
+for (const [lang, levels] of Object.entries(ADULT)) for (const [level, words] of Object.entries(levels)) WORDS[lang][level].push(...words);
 
 export const LANG_NAMES = { en: "English", no: "Norsk" };

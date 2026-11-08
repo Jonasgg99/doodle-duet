@@ -15,6 +15,8 @@ import {
   guessesLeft,
   MAX_GUESSES,
   gameIdFromHash,
+  wordLevels,
+  WORD_SETTINGS,
 } from "../game.js";
 import { WORDS } from "../words.js";
 
@@ -75,6 +77,29 @@ test("word choices reuse words once the pool runs low, still three different wor
   const used = new Set([...WORDS.en.easy, ...WORDS.en.medium]);
   const c = pickChoices("en", used, Math.random);
   assert.equal(new Set(c.map((x) => x.word)).size, 3);
+});
+
+test("word setting picks the lists: easy, mixed (easy+medium, the default), hard", () => {
+  assert.deepEqual(WORD_SETTINGS, ["easy", "mixed", "hard"]);
+  assert.deepEqual(wordLevels("easy"), ["easy"]);
+  assert.deepEqual(wordLevels("mixed"), ["easy", "medium"]);
+  assert.deepEqual(wordLevels(undefined), ["easy", "medium"]);
+  assert.deepEqual(wordLevels("hard"), ["hard"]);
+  for (const lang of Object.keys(WORDS))
+    for (const setting of WORD_SETTINGS)
+      for (let i = 0; i < 20; i++)
+        for (const x of pickChoices(lang, new Set(), Math.random, setting)) {
+          assert.ok(wordLevels(setting).includes(x.level), `${lang} ${setting}: ${x.level}`);
+          assert.ok(WORDS[lang][x.level].includes(x.word));
+        }
+});
+
+test("word lists: no word twice in a language, and every word is lower-case words", () => {
+  for (const lang of Object.keys(WORDS)) {
+    const all = [...WORDS[lang].easy, ...WORDS[lang].medium, ...WORDS[lang].hard];
+    assert.deepEqual(all.filter((w, i) => all.indexOf(w) !== i), [], `${lang}: duplicates`);
+    for (const w of all) assert.match(w, /^\p{Ll}+( \p{Ll}+)*$/u, `${lang}: "${w}"`);
+  }
 });
 
 test("game ids are read from links; no id means the main game", () => {

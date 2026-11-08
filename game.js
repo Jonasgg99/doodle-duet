@@ -1,7 +1,9 @@
 // Pure game rules. No DOM, no network: tested by tests/game.test.mjs.
 import { WORDS } from "./words.js";
 
-export const WORD_LEVELS = ["easy", "medium"]; // lists words are drawn from; "hard" is kept for later
+// The game's word setting (game.wordLevel) decides which lists words are drawn from.
+export const WORD_SETTINGS = ["easy", "mixed", "hard"];
+export const wordLevels = (setting) => ({ easy: ["easy"], hard: ["hard"] })[setting] ?? ["easy", "medium"];
 export const DRAW_SECS = 60;
 export const MAX_REPLAY_GAP_MS = 1500;
 
@@ -54,11 +56,11 @@ export const guessesLeft = (guesses) => Math.max(0, MAX_GUESSES - guesses.filter
 
 export const otherSeat = (seat) => (seat === "a" ? "b" : "a");
 
-// Three different words to choose from. Each keeps the list it came from (its level),
-// so difficulty can come back later without changing saved games.
-export function pickChoices(lang, used, rng = Math.random) {
+// Three different words to choose from, from the lists the word setting allows.
+// Each keeps the list it came from (its level).
+export function pickChoices(lang, used, rng = Math.random, setting) {
   const list = WORDS[lang] ?? WORDS.en;
-  const pool = WORD_LEVELS.flatMap((level) => list[level].map((word) => ({ word, level })));
+  const pool = wordLevels(setting).flatMap((level) => list[level].map((word) => ({ word, level })));
   const shuffle = (xs) => {
     for (let i = xs.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1));

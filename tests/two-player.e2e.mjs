@@ -103,7 +103,16 @@ assert.deepEqual(await scores(A), [3, 3]);
 assert.match(await text(A, "#panel"), /Waiting for Ida to draw/);
 await shot(A, "08-drawer-banner");
 
-// --- Round 2: Ida's timer runs out (auto-send, no share sheet); Jonas uses up 3 wrong guesses ---
+// --- Round 2: Ida switches words to Hard, her timer runs out (auto-send, no share sheet); Jonas uses up 3 wrong guesses ---
+const choicesNow = (p) => p.evaluate(() => window.__dd.game.turns[window.__dd.game.cur].choices);
+assert.ok((await choicesNow(B)).some((c) => c.level !== "hard"), "starts on the default lists");
+await B.click('#word-seg [data-v="hard"]');
+await B.waitForSelector('#word-seg [data-v="hard"][aria-checked="true"]');
+await B.waitForFunction(() => window.__dd.game.turns[window.__dd.game.cur].choices.every((c) => c.level === "hard"));
+const hard = (await choicesNow(B)).map((c) => c.word);
+await B.waitForFunction((w) => [...document.querySelectorAll(".choice .cw")].map((e) => e.textContent).join() === w.join(), hard);
+await A.waitForSelector('#word-seg [data-v="hard"][aria-checked="true"]'); // Jonas sees the setting live
+await shot(B, "08b-hard-words");
 await B.locator(".choice").nth(0).click();
 await B.waitForSelector("#draw-canvas");
 await scribble(B);
@@ -117,6 +126,7 @@ await A.click("#start-guess");
 await A.waitForSelector("#guess-canvas");
 for (const w of ["zzz one", "zzz two", "zzz three"]) await guess(A, w);
 await A.waitForSelector(".choice"); // round over, Jonas draws next
+assert.ok((await choicesNow(A)).every((c) => c.level === "hard"), "the next round uses the new setting");
 assert.match(await text(A, ".result-banner"), /Not this time/);
 await shot(A, "09-out-of-guesses");
 await B.waitForSelector(".result-banner");

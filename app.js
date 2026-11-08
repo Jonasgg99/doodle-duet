@@ -150,8 +150,8 @@ async function newGame() {
   }
 }
 
-function makeTurn(n, drawer, used, lang) {
-  return { n, drawer, status: "draw", choices: G.pickChoices(lang, used) };
+function makeTurn(n, drawer, used, lang, wordLevel) {
+  return { n, drawer, status: "draw", choices: G.pickChoices(lang, used, Math.random, wordLevel) };
 }
 
 // ---------- game model helpers ----------
@@ -219,6 +219,7 @@ function renderGame() {
   show("game");
   syncPush(seat);
   renderScoreboard(seat);
+  renderWordSetting();
   renderHistory(seat);
 
   const key = pickPanel(seat);
@@ -261,7 +262,7 @@ function resultBanner(seat) {
 function pickPanel(seat) {
   const t = curTurn(game);
   if (t.drawer === seat) {
-    if (t.status === "draw") return (t.word ? "draw:" : "choose:") + t.n;
+    if (t.status === "draw") return t.word ? "draw:" + t.n : "choose:" + t.n + ":" + t.choices.map((c) => c.word).join("|");
     return "wait:" + t.n + ":" + (game.players.b ? "guess" : "join");
   }
   if (t.status === "draw") return "wait:" + t.n + ":draw";
@@ -277,6 +278,34 @@ function renderScoreboard(seat) {
       <span class="pscore">${t[s]}</span>
     </div>`;
   $("#scoreboard").innerHTML = `${chip("a")}<div class="round">Round ${cur.n + 1}</div>${chip("b")}`;
+}
+
+// Easy / Mixed / Hard, for both players, changeable any time. A word choice on screen that
+// hasn't been picked yet is redrawn from the new lists; otherwise it applies from the next round.
+const WORD_LABELS = { easy: "Easy", mixed: "Mixed", hard: "Hard" };
+function renderWordSetting() {
+  const seg = $("#word-seg");
+  const cur = game.wordLevel ?? "mixed";
+  if (!seg.children.length) {
+    seg.innerHTML = G.WORD_SETTINGS.map((v) => `<button type="button" role="radio" data-v="${v}">${WORD_LABELS[v]}</button>`).join("");
+    seg.addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (b && b.dataset.v !== (game.wordLevel ?? "mixed")) setWordLevel(b.dataset.v);
+    });
+  }
+  for (const b of seg.children) b.setAttribute("aria-checked", b.dataset.v === cur);
+}
+
+async function setWordLevel(v) {
+  const t = curTurn(game);
+  const patch = { wordLevel: v };
+  if (t.status === "draw" && !t.word) patch[`turns/${game.cur}/choices`] = G.pickChoices(game.lang, usedWords(game), Math.random, v);
+  try {
+    await store.update(`games/${gameId}`, patch);
+  } catch (err) {
+    console.error(err);
+    toast("Couldn't change the words. Check your connection.");
+  }
 }
 
 function renderHistory(seat) {
@@ -579,7 +608,7 @@ function panelGuess(panel, seat) {
     const patch = {
       [`turns/${key}/status`]: "done",
       [`turns/${key}/result`]: { correct, ms: Math.round(ms), drawerPts: pts.drawer, guesserPts: pts.guesser },
-      [`turns/${nextKey}`]: makeTurn(t.n + 1, seat, used, game.lang),
+      [`turns/${nextKey}`]: makeTurn(t.n + 1, seat, used, game.lang, game.wordLevel),
       cur: nextKey,
     };
     try {
