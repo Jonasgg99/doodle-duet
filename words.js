@@ -102,30 +102,36 @@ export const WORDS = {
 const ADULT = {
   en: {
     easy: ["bra", "boobs", "butt", "thong", "condom", "naked", "whip", "handcuffs", "nipple", "penis", "lube", "dildo", "vibrator", "blindfold", "horny", "hickey",
-      "panties", "boxers", "bikini", "kiss", "tongue", "hot tub", "sexy"],
+      "panties", "boxers", "bikini", "kiss", "tongue", "hot tub", "sexy",
+      "vagina", "balls", "butt plug", "cleavage", "stockings", "sperm", "pubes", "underwear", "fishnets", "eggplant", "peach", "moan", "corset", "latex"],
     medium: [
       "lingerie", "stripper", "pole dance", "lap dance", "skinny dipping", "strip poker", "booty call", "quickie", "threesome", "spanking",
       "foreplay", "doggy style", "cowgirl", "missionary", "boner", "french kiss", "make out", "sex toy", "strip club", "safe word",
       "massage", "body paint", "nude selfie", "sexting", "roleplay", "striptease", "whipped cream", "kama sutra", "peep show", "bachelor party",
+      "blowjob", "boob job", "nipple clamps", "cock ring", "love handles", "camel toe", "sex swing", "penis pump", "strap on", "morning sex", "booty shorts", "swingers",
     ],
     hard: [
       "one night stand", "walk of shame", "morning wood", "sixty nine", "orgasm", "bondage", "nudist beach",
       "wet dream", "shower sex", "naughty nurse", "dirty talk", "mile high club", "body shots", "chastity belt",
       "friends with benefits", "netflix and chill", "morning after", "afterglow", "dominatrix", "sugar daddy",
+      "caught in the act", "performance anxiety", "faking it", "dry spell", "blue balls", "pillow talk", "make up sex", "sexual tension", "fetish", "voyeur", "exhibitionist", "dirty weekend",
     ],
   },
   no: {
     easy: ["bh", "pupper", "rumpe", "string", "kondom", "naken", "pisk", "håndjern", "brystvorte", "penis", "glidemiddel", "dildo", "vibrator", "sugemerke", "kåt",
-      "truse", "bokser", "bikini", "kyss", "tunge", "boblebad", "sexy"],
+      "truse", "bokser", "bikini", "kyss", "tunge", "boblebad", "sexy",
+      "vagina", "baller", "buttplug", "utringning", "sæd", "kjønnshår", "undertøy", "nettingstrømper", "aubergine", "fersken", "stønn", "korsett", "lateks"],
     medium: [
       "reizeundertøy", "stripper", "stangdans", "fangdans", "nakenbading", "strippepoker", "ligg", "trekant", "ris på rumpa", "forspill",
       "doggy", "rytterstilling", "misjonærstilling", "ståpikk", "tungekyss", "klining", "sexleketøy", "strippeklubb", "safeord", "bind for øynene",
       "massasje", "kroppsmaling", "nakenbilde", "sexting", "rollespill", "striptease", "krem", "kama sutra", "utdrikningslag",
+      "blowjob", "silikonpupper", "brystvorteklyper", "penisring", "kjærlighetshåndtak", "kameltå", "sexhuske", "penispumpe", "strap on", "morgensex", "swingers",
     ],
     hard: [
       "engangsligg", "sekstini", "orgasme", "bondage", "nakenstrand", "våt drøm", "dusjsex",
       "frekk sykepleier", "skittenprat", "pornoblad", "bryllupsnatt", "kyskhetsbelte", "trusetyv",
       "venner med fordeler", "netflix og chill", "dagen derpå", "etterglød", "dominatrise", "sugardaddy",
+      "tatt på fersken", "prestasjonsangst", "fake orgasme", "tørkeperiode", "blå baller", "puteprat", "forsoningssex", "seksuell spenning", "fetisj", "voyør", "ekshibisjonist",
     ],
   },
 };
@@ -135,7 +141,7 @@ for (const [lang, levels] of Object.entries(ADULT)) for (const [level, words] of
 // both languages: the best known in medium, the rest in hard.
 const WHO = {
   medium: ["dalek", "cyberman", "weeping angel"],
-  hard: ["sontaran", "silurian", "ood", "adipose", "zygon", "slitheen", "judoon", "auton", "ice warrior", "davros", "sycorax"],
+  hard: ["ood"],
 };
 for (const lang of Object.keys(WORDS)) for (const [level, words] of Object.entries(WHO)) WORDS[lang][level].push(...words);
 
