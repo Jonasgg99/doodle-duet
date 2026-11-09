@@ -131,4 +131,12 @@ const ADULT = {
 };
 for (const [lang, levels] of Object.entries(ADULT)) for (const [level, words] of Object.entries(levels)) WORDS[lang][level].push(...words);
 
+// Doctor Who creatures with a look you can draw (Jonas, 2026-11-09), under their English names in
+// both languages: the best known in medium, the rest in hard.
+const WHO = {
+  medium: ["dalek", "cyberman", "weeping angel"],
+  hard: ["sontaran", "silurian", "ood", "adipose", "zygon", "slitheen", "judoon", "auton", "ice warrior", "davros", "sycorax"],
+};
+for (const lang of Object.keys(WORDS)) for (const [level, words] of Object.entries(WHO)) WORDS[lang][level].push(...words);
+
 export const LANG_NAMES = { en: "English", no: "Norsk" };
