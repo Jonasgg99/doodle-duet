@@ -178,7 +178,10 @@ function openGame(id) {
     },
     (err) => {
       console.error(err);
-      showError("This game is already being played by two other devices, so it can't be opened here.");
+      showError(
+        "This game is already being played by two other devices, so it can't be opened here. " +
+          'If you\'re one of the players on a new phone or browser, ask your partner to tap "Let … join again" at the bottom of the game, then reload this page.'
+      );
     }
   );
 }
@@ -214,13 +217,18 @@ function renderGame() {
   const seat = seatOf(game);
   if (!seat) {
     if (!game.players.b) return showJoin();
-    return showError("This game already has two players on other devices.");
+    const [a, b] = [nameOf(game, "a"), nameOf(game, "b")];
+    return showError(
+      `This game already has two players on other devices. If you're ${b} on a new phone or browser, ` +
+        `ask ${a} to tap "Let ${b} join again" at the bottom of the game, then reload this page.`
+    );
   }
   show("game");
   syncPush(seat);
   renderScoreboard(seat);
   renderWordSetting();
   renderHistory(seat);
+  renderReseat(seat);
 
   const key = pickPanel(seat);
   if (key === panelKey) {
@@ -346,6 +354,28 @@ async function setWordLevel(v) {
     console.error(err);
     toast("Couldn't change the words. Check your connection.");
   }
+}
+
+// Each browser has its own anonymous identity, so playing from a new phone or browser means a new
+// identity. The player who set up the game can free seat b; turns and scores belong to the seat,
+// so they stay, and the partner joins again from the new browser. (A lost seat a needs the console.)
+function renderReseat(seat) {
+  const btn = $("#reseat-btn");
+  btn.hidden = seat !== "a" || !game.players.b;
+  if (btn.hidden) return;
+  const them = nameOf(game, "b");
+  btn.textContent = `Let ${them} join again from a new phone or browser`;
+  btn.onclick = async () => {
+    const ask = `Let ${them} join again from another phone or browser?\n\nThe one ${them} plays on now loses the game. Scores are kept. ${them} then opens the game there and taps Join.`;
+    if (!confirm(ask)) return;
+    try {
+      await store.update(`games/${gameId}`, { "players/b": null, "push/b": null });
+      toast(`Send ${them} the link to join again.`);
+    } catch (err) {
+      console.error(err);
+      toast("Couldn't do that. Check your connection.");
+    }
+  };
 }
 
 function renderHistory(seat) {

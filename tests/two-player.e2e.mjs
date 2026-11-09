@@ -172,6 +172,25 @@ await shot(A, "10-reopened");
 const C = await open("C");
 await C.goto(URL0);
 await C.waitForSelector("#view-error:not([hidden])");
+assert.match(await text(C, "#error-text"), /Let Ida join again/, "the lock-out says how to move a seat");
+
+// Ida moves to another browser (tab C): Jonas lets her join again, her old tab loses the seat,
+// the new one joins as her and the scores and turn stay. Only the player who set up the game has the button.
+assert.ok(await B.locator("#reseat-btn").isHidden(), "Ida can't release Jonas's seat");
+A.once("dialog", (d) => d.accept());
+await A.click("#reseat-btn");
+await B.waitForSelector("#view-join:not([hidden])");
+await C.reload();
+await C.waitForSelector("#view-join:not([hidden])");
+await C.fill("#join-name", "Ida");
+await C.click("#join-btn");
+await C.waitForSelector(".choice"); // it was Ida's turn to draw
+assert.deepEqual(await scores(C), [3, 3]);
+assert.match(await text(C, "#scoreboard"), /round 4/i);
+assert.match(await text(C, "#scoreboard .is-me"), /Ida/);
+const D = await open("D");
+await D.goto(URL0);
+await D.waitForSelector("#view-error:not([hidden])"); // two players again
 
 await A.emulateMedia({ colorScheme: "dark" });
 await shot(A, "11-dark");

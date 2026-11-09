@@ -17,7 +17,7 @@ The site is one shared game for the two of you: **jonasgg99.github.io/doodle-due
 
 To skip that: on the waiting screen, tap **Notify me when it's my turn** and allow notifications. From then on your partner's Send gives you a phone notification instead, with no app to install. Notifications go through a small Cloudflare Worker and your browser's push service (Google's, for Chrome on Android); the message is encrypted for your phone on the way.
 
-Each phone is identified by the browser's anonymous sign-in. Clearing the browser's site data for the game loses your seat in existing games.
+Each phone is identified by the browser's anonymous sign-in, so each browser counts as a different player: a link opened inside Messenger or another app's built-in browser is not the same as Chrome. Open the game in the browser you'll keep playing in. To move the second player to a new phone or browser (or after they cleared the site data), the player who set up the game taps **Let … join again** at the bottom of the game; the second player then opens the game in the new browser and taps **Join game**. Scores and the current round are kept.
 
 ## Running locally
 ```bash

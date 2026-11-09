@@ -75,6 +75,19 @@ const stranger = await C.evaluate(async (id) => {
 }, testId);
 assert.match(stranger, /permission.denied/i, "stranger must not be able to take a seat");
 
+// B moves to another browser (C): A lets B join again, C takes the seat with scores and turn
+// intact, and B's old browser is locked out.
+const scoresOf = (p) => p.$$eval(".pscore", (els) => els.map((e) => +e.textContent));
+const before = await scoresOf(A);
+A.once("dialog", (d) => d.accept());
+await A.click("#reseat-btn", T);
+await C.reload();
+await C.fill("#join-name", "Test C", T);
+await C.click("#join-btn");
+await C.waitForSelector(".choice", T); // it was B's turn to draw
+assert.deepEqual(await scoresOf(C), before);
+await B.waitForSelector("#view-error:not([hidden])", T);
+
 await browser.close();
 assert.deepEqual(errors, [], errors.join("\n"));
 console.log("firebase e2e: passed against " + BASE);
