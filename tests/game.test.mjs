@@ -20,6 +20,7 @@ import {
   missedGuesses,
   resultIsNew,
   turnsInOrder,
+  letterHint,
 } from "../game.js";
 import { WORDS } from "../words.js";
 
@@ -166,4 +167,11 @@ test("replay compresses long pauses between strokes and keeps drawing speed", ()
   assert.deepEqual(tl.times[1], [2000, 2500]);
   assert.equal(tl.duration, 2500);
   assert.deepEqual(replayTimeline([], 1500), { times: [], duration: 0 });
+});
+
+test("letter hint: the count per word, so the guesser doesn't have to count blanks", () => {
+  assert.equal(letterHint("elephant"), "8 letters");
+  assert.equal(letterHint("ice cream"), "3 + 5 letters");
+  assert.equal(letterHint("blåbær"), "6 letters");
+  assert.equal(letterHint("a"), "1 letter");
 });

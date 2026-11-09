@@ -634,11 +634,11 @@ function panelGuess(panel, seat) {
   const limit = G.guessLimitMs(game.drawSecs);
   const blanks = t.word
     .split(" ")
-    .map((w) => `<span class="blank-word">${[...w].map(() => "<i></i>").join("")}</span>`)
+    .map((w) => `<span class="blank-word" aria-hidden="true">${[...w].map(() => "<i></i>").join("")}</span>`)
     .join("");
   panel.innerHTML = `
     <div class="draw-head">
-      <div class="blanks" aria-label="${[...t.word.replace(/ /g, "")].length} letters">${blanks}</div>
+      <div class="blanks">${blanks}<span class="blank-count">${esc(G.letterHint(t.word))}</span></div>
       <div class="timer" id="guess-timer"></div>
     </div>
     <div class="timebar"><div class="timebar-fill" id="guess-bar"></div></div>

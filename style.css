@@ -179,9 +179,10 @@ canvas.art {
 .size span { width: var(--s); height: var(--s); border-radius: 50%; background: var(--ink); }
 .size[aria-pressed="true"] { border-color: var(--accent); }
 
-.blanks { display: flex; flex-wrap: wrap; gap: 10px; }
+.blanks { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
 .blank-word { display: flex; gap: 4px; }
 .blank-word i { width: 14px; height: 3px; margin-top: 18px; border-radius: 2px; background: var(--ink); }
+.blank-count { font-weight: 700; font-size: 1.1rem; line-height: 1; color: var(--accent); white-space: nowrap; margin-left: 4px; }
 .guess-form { display: flex; gap: 8px; }
 .guesses { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; max-height: 64px; overflow-y: auto; }
 .guesses li { font-size: .9rem; padding: 3px 10px; border-radius: 99px; background: var(--surface); color: var(--muted); text-decoration: line-through; }

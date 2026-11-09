@@ -6,6 +6,7 @@
 // Run: node tests/two-player.e2e.mjs [screenshot-dir]
 import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
+import { letterHint } from "../game.js";
 
 const pwPath = process.env.PLAYWRIGHT || "D:/Apps/quiz-maker/node_modules/@playwright/test/index.mjs";
 const { chromium } = await import(pathToFileURL(pwPath).href);
@@ -90,6 +91,7 @@ await guess(B, "definitely not it");
 assert.match(await text(B, "#guess-left"), /^2 wrong guesses left/);
 await shot(B, "06-guessing");
 const word1 = await B.evaluate(() => window.__dd.game.turns.t000.word);
+assert.equal(await text(B, ".blank-count"), letterHint(word1), "the letter count is spelled out");
 await guess(B, word1.toUpperCase());
 // No result screen: Ida lands on her word choice with the result on top.
 await B.waitForSelector(".choice");

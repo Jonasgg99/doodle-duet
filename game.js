@@ -97,6 +97,13 @@ export function totals(turns) {
   return t;
 }
 
+// The guesser's hint as a number, e.g. "8 letters" or "3 + 5 letters" for two words.
+export function letterHint(word) {
+  const counts = word.split(" ").map((w) => [...w].length);
+  const n = counts.reduce((a, b) => a + b, 0);
+  return `${counts.join(" + ")} letter${n === 1 ? "" : "s"}`;
+}
+
 // Turns in round order. Keys are "t" + round padded to 3 digits, so key order breaks at t1000.
 export const turnsInOrder = (turns) => Object.values(turns || {}).sort((a, b) => a.n - b.n);
 
