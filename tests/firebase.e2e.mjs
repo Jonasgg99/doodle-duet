@@ -104,7 +104,7 @@ try {
   assert.match(await tryWrite(C, "set", `users/${a}/games/${gameId}`, true), DENIED, "add a game they're not in to someone's list");
   assert.equal(await tryRead(C, "players"), "ok", "the player list is readable");
   const ghost = "zzghost" + Date.now().toString(36);
-  const fake = { v: 1, lang: "en", drawSecs: 60, cur: "t000", players: { a: { uid: c, name: "zz test C" }, b: { uid: "nobody-" + ghost, name: "x" } }, turns: {} };
+  const fake = { v: 1, lang: "en", drawSecs: 60, cur: "t000", players: { a: { uid: c, name: "zz test C" }, b: { uid: "nobody-" + ghost, name: "x" } }, turns: { t000: { n: 0, drawer: "a", status: "draw", choices: [{ word: "cat", level: "easy" }] } } };
   assert.match(await tryWrite(C, "set", `games/${ghost}`, fake), DENIED, "start a game with someone who isn't a player");
   const odd = { ...fake, players: { a: { uid: c, name: 5 }, b: { uid: a, name: "zz test A" } } };
   assert.match(await tryWrite(C, "set", `games/${ghost}`, odd), DENIED, "a player name in a game must be text");

@@ -24,15 +24,15 @@ Players with their own sign-in, several games at once, a home page listing your 
 ## Dead ends
 
 ## Next
-1. Done 2026-11-10: Google provider on, `jonasgg99.github.io` authorized (it was missing at first: `auth/unauthorized-domain`).
-2. Push `signin-test.html` (with his OK); Jonas opens it in Chrome and from the installed app and reports what it shows. Delete the page afterwards.
-3. Build with tests first (list in the design page: unit status line and order; local e2e for first visit, two games at once, pick from list, `main` in both lists; live rules refusals; linked sign-in keeps uid).
-4. Fresh-reviewer pass on rules and sign-in flow, then Jonas pastes combined rules, push, live test.
+1. Deployed with Jonas's OK (rules published 2026-11-10, then push). `signin-test.html` removed in the deploy commit.
+2. Jonas and Ida open the site, make their players with Google (Jonas's Chrome is already linked; same uid as before), and check the game with Ida shows up in both lists with its scores. If a `main` seat lived in a browser that can't sign in (Messenger), seat b moves with "Let … join again"; seat a needs the console.
+3. Installed-app sign-in on Android still unreported.
+4. Then finish: lasting notes are already in AGENTS.md/README; delete this file.
 
 ## Needs user
-- Steps 1 and 2 of Next.
+- Steps 2 and 3 of Next on the real phones.
 
 ## Verified
-- Local: unit (29), lobby e2e (first visit, list live, invite link, pick a player, two games at once, `main` in the list with scores), two-player, push (incl. list sync for partners only, not for a stranger's game) and stale-deploy e2e passed @a671be2+dirty. Live rules not yet published; firebase e2e (rule refusals) not run against them yet.
+- Local: unit (29), lobby e2e (first visit, list live, invite link, pick a player, two games at once, `main` in the list with scores), two-player, push (incl. list sync for partners only, not for a stranger's game) and stale-deploy e2e passed @a671be2+dirty. Live rules published by Jonas; firebase e2e on localhost against them (incl. all stranger refusals, odd names refused, test players cleaned up) passed @07e67b7+dirty.
 - Live `signin-test.html` on Pages: the pop-up reaches accounts.google.com (provider on, domain authorized), headless, no sign-in completed @b683227. Phone test pending.
 - Jonas's phone, Chrome (2026-11-10 21:02): linkWithPopup signed in as his Google account and kept the same player id. Installed-app run not reported yet.
