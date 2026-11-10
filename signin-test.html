@@ -1,0 +1,62 @@
+<!doctype html>
+<!-- Temporary check (delete after use): does Google sign-in by pop-up work on the phone, in Chrome
+     and from the installed app, and does linking keep this browser's player id? It only links: it
+     never signs out or switches player, so the real game's seat in this browser is untouched. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doodle Duet sign-in check</title>
+<style>
+  body { font: 17px/1.5 system-ui, sans-serif; margin: 0; padding: 20px 16px; background: #eef0f8; color: #1e2130; }
+  @media (prefers-color-scheme: dark) { body { background: #14161f; color: #eceef6; } }
+  main { max-width: 480px; margin: 0 auto; display: grid; gap: 14px; }
+  button { font: inherit; font-weight: 700; padding: 12px; border-radius: 12px; border: 0; background: #5b3fd6; color: #fff; }
+  button:disabled { opacity: .5; }
+  pre { white-space: pre-wrap; background: rgba(127,127,127,.15); padding: 12px; border-radius: 10px; margin: 0; font-size: 15px; }
+</style>
+</head>
+<body>
+<main>
+  <h1 style="margin:0">Sign-in check</h1>
+  <p style="margin:0">Tap the button, sign in with Google, then send Claude a screenshot of the box below.</p>
+  <button id="link" disabled>Link Google account</button>
+  <pre id="out">Starting…</pre>
+</main>
+<script type="module">
+import { firebaseConfig } from "./firebase-config.js";
+const F = "https://www.gstatic.com/firebasejs/12.17.1/";
+const out = document.getElementById("out");
+const btn = document.getElementById("link");
+const lines = [];
+const log = (s) => { lines.push(s); out.textContent = lines.join("\n"); };
+try {
+  const [{ initializeApp }, A] = await Promise.all([import(F + "firebase-app.js"), import(F + "firebase-auth.js")]);
+  const auth = A.getAuth(initializeApp(firebaseConfig));
+  await auth.authStateReady();
+  if (!auth.currentUser) await A.signInAnonymously(auth);
+  const standalone = matchMedia("(display-mode: standalone)").matches;
+  const before = auth.currentUser.uid;
+  const google = () => auth.currentUser.providerData.find((p) => p.providerId === "google.com");
+  log(`Opened in: ${standalone ? "installed app" : "browser"}`);
+  log(`Player id: ${before.slice(0, 8)}…`);
+  log(`Google linked already: ${google() ? "yes (" + google().displayName + ")" : "no"}`);
+  btn.disabled = !!google();
+  btn.onclick = async () => {
+    btn.disabled = true;
+    try {
+      await A.linkWithPopup(auth.currentUser, new A.GoogleAuthProvider());
+      const after = auth.currentUser.uid;
+      log(`Linked: ${google()?.displayName ?? "?"}`);
+      log(`Same player id after: ${after === before ? "YES" : "NO, now " + after.slice(0, 8) + "…"}`);
+    } catch (e) {
+      log(`Failed: ${e.code || e.name} ${e.message || ""}`);
+      btn.disabled = false;
+    }
+  };
+} catch (e) {
+  log(`Couldn't start: ${e.code || e.name} ${e.message || ""}`);
+}
+</script>
+</body>
+</html>
