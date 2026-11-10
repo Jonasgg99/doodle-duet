@@ -23,7 +23,7 @@ Players with their own sign-in, several games at once, a home page listing your 
 ## Dead ends
 
 ## Next
-1. Jonas: Firebase console > Authentication > Sign-in method > enable Google; check `jonasgg99.github.io` is under Authorized domains.
+1. Done 2026-11-10: Google provider on, `jonasgg99.github.io` authorized (it was missing at first: `auth/unauthorized-domain`).
 2. Push `signin-test.html` (with his OK); Jonas opens it in Chrome and from the installed app and reports what it shows. Delete the page afterwards.
 3. Build with tests first (list in the design page: unit status line and order; local e2e for first visit, two games at once, pick from list, `main` in both lists; live rules refusals; linked sign-in keeps uid).
 4. Fresh-reviewer pass on rules and sign-in flow, then Jonas pastes combined rules, push, live test.
@@ -32,3 +32,4 @@ Players with their own sign-in, several games at once, a home page listing your 
 - Steps 1 and 2 of Next.
 
 ## Verified
+- Live `signin-test.html` on Pages: the pop-up reaches accounts.google.com (provider on, domain authorized), headless, no sign-in completed @b683227. Phone test pending.
