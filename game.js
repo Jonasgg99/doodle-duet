@@ -1,5 +1,5 @@
 // Pure game rules. No DOM, no network: tested by tests/game.test.mjs.
-import { WORDS } from "./words.js";
+import { WORDS, ADULT_WORDS } from "./words.js";
 
 // The game's word setting (game.wordLevel) decides which lists words are drawn from.
 export const WORD_SETTINGS = ["easy", "mixed", "hard"];
@@ -63,11 +63,14 @@ export const missedGuesses = (turn) =>
 
 export const otherSeat = (seat) => (seat === "a" ? "b" : "a");
 
-// Three different words to choose from, from the lists the word setting allows.
-// Each keeps the list it came from (its level).
-export function pickChoices(lang, used, rng = Math.random, setting) {
+// Three different words to choose from, from the lists the word setting allows, without the
+// adult words when the game leaves them out. Each keeps the list it came from (its level).
+export function pickChoices(lang, used, rng = Math.random, setting, adult = true) {
   const list = WORDS[lang] ?? WORDS.en;
-  const pool = wordLevels(setting).flatMap((level) => list[level].map((word) => ({ word, level })));
+  const adultWords = (WORDS[lang] ? ADULT_WORDS[lang] : ADULT_WORDS.en) ?? new Set();
+  const pool = wordLevels(setting).flatMap((level) =>
+    list[level].filter((word) => adult || !adultWords.has(word)).map((word) => ({ word, level }))
+  );
   const shuffle = (xs) => {
     for (let i = xs.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1));

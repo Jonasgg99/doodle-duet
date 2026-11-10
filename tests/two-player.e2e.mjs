@@ -137,6 +137,15 @@ await B.waitForFunction((w) => [...document.querySelectorAll(".choice .cw")].map
 assert.deepEqual((await choicesNow(B)).map((c) => c.word), hard, "Hard shows the same words again");
 assert.deepEqual(mixedAgain, firstWords, "Mixed brought back her first words");
 assert.equal(await shownWords(B), hard.join());
+// Jonas leaves the adult words out: Ida sees the switch change, and her choices are drawn again
+// from the clean words only (new rounds too, checked below).
+const adultWords = await B.evaluate(async () => [...(await import("./words.js")).ADULT_WORDS.en]);
+await A.click('#adult-seg [data-v="off"]');
+await B.waitForSelector('#adult-seg [data-v="off"][aria-checked="true"]');
+await B.waitForFunction(() => window.__dd.game.adult === false);
+const cleanChoices = await choicesNow(B);
+assert.ok(cleanChoices.every((c) => c.level === "hard" && !adultWords.includes(c.word)), "choices redrawn without adult words");
+await B.waitForFunction((w) => [...document.querySelectorAll(".choice .cw")].map((e) => e.textContent).join() === w.join(), cleanChoices.map((c) => c.word));
 assert.equal(await B.inputValue(".result-banner .note-input"), "Nice drawing!");
 assert.ok(await B.evaluate(() => document.activeElement?.classList.contains("note-input")), "message box keeps focus");
 await shot(B, "08b-hard-words");
@@ -162,7 +171,7 @@ await A.click("#start-guess");
 await A.waitForSelector("#guess-canvas");
 for (const w of ["zzz one", "zzz two", "zzz three"]) await guess(A, w);
 await A.waitForSelector(".choice"); // round over, Jonas draws next
-assert.ok((await choicesNow(A)).every((c) => c.level === "hard"), "the next round uses the new setting");
+assert.ok((await choicesNow(A)).every((c) => c.level === "hard" && !adultWords.includes(c.word)), "the next round uses the new settings");
 assert.match(await text(A, ".result-banner"), /Not this time/);
 await shot(A, "09-out-of-guesses");
 await B.waitForSelector(".result-banner");

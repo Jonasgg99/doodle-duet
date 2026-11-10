@@ -8,7 +8,7 @@ A drawing game for two that you play at your own pace, with as many games going 
 - A correct guess is worth 3 points in the first third of the guess time, 2 in the middle and 1 at the end, the same for both players. So a quick, clear drawing pays off too.
 - Whoever guessed draws next.
 - After a round the result shows on top of the next screen, with the guesses that missed. The guesser can send the drawer a short message from there; it also stays under Earlier rounds.
-- **Words** under the game sets how hard the words are: Easy, Mixed (the default) or Hard. Either of you can change it any time; it applies to the next word choice. The lists include some adult words.
+- **Words** under the game sets how hard the words are: Easy, Mixed (the default) or Hard. Either of you can change it any time; it applies to the next word choice. The lists include some adult words: **Adult words** (when starting a game, and under the game) includes them or leaves them out.
 
 ## Playing on Android
 Open the game link in Chrome (or Samsung Internet) and use **Add to home screen / Install app** from the browser menu. It then runs full screen like an app. Works with the S Pen; once the pen has touched the canvas, finger and palm touches are ignored for that drawing.

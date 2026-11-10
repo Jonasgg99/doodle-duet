@@ -25,7 +25,7 @@ import {
   gameStatus,
   sortGames,
 } from "../game.js";
-import { WORDS } from "../words.js";
+import { WORDS, ADULT_WORDS } from "../words.js";
 
 test("guess matching ignores case, spacing, punctuation and accents", () => {
   assert.equal(normalizeGuess("  Ice-Cream! "), "ice cream");
@@ -126,6 +126,21 @@ test("switching the word setting back and forth while choosing brings back the s
   go("hard", "easy");
   assert.deepEqual(turn.choices, easy);
   assert.equal(n, 2, "each setting is drawn once per round");
+});
+
+test("adult words: left out of the choices when the game excludes them", () => {
+  for (const lang of Object.keys(WORDS)) {
+    assert.ok(ADULT_WORDS[lang].size > 30, `${lang}: adult words are known`);
+    for (const setting of WORD_SETTINGS) {
+      const clean = new Set(wordLevels(setting).flatMap((l) => WORDS[lang][l]).filter((w) => !ADULT_WORDS[lang].has(w)));
+      // Every clean word used: excluded adult words must not fill the gap, included ones do.
+      const off = pickChoices(lang, clean, Math.random, setting, false);
+      assert.ok(off.every((c) => !ADULT_WORDS[lang].has(c.word)), `${lang} ${setting}: no adult word when excluded`);
+      const on = pickChoices(lang, clean, Math.random, setting, true);
+      assert.ok(on.every((c) => ADULT_WORDS[lang].has(c.word)), `${lang} ${setting}: adult words when included`);
+      assert.ok(pickChoices(lang, clean, Math.random, setting).every((c) => ADULT_WORDS[lang].has(c.word)), "included unless the game says otherwise");
+    }
+  }
 });
 
 test("games list: each game says who you play and whose move it is", () => {

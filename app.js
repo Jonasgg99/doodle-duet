@@ -59,7 +59,8 @@ let panelKey = null; // which panel is on screen, so live updates don't restart 
 let drawing = null; // active drawing session
 let guessing = null; // active guessing session
 let offView = []; // unsubscribes for the games list and new-game screens
-const prefs = { name: ls.get("dd_name", ""), lang: ls.get("dd_lang", "en"), level: ls.get("dd_level", "mixed") };
+const prefs = { name: ls.get("dd_name", ""), lang: ls.get("dd_lang", "en"), level: ls.get("dd_level", "mixed"), adult: ls.get("dd_adult", "on") };
+const ADULT_LABELS = { on: "Include", off: "Leave out" };
 
 // ---------- views ----------
 function show(view) {
@@ -116,6 +117,7 @@ function route() {
 function setupViews() {
   segmented($("#lang-seg"), Object.entries(LANG_NAMES), prefs.lang, (v) => ls.set("dd_lang", (prefs.lang = v)));
   segmented($("#level-seg"), Object.entries(WORD_LABELS), prefs.level, (v) => ls.set("dd_level", (prefs.level = v)));
+  segmented($("#new-adult-seg"), Object.entries(ADULT_LABELS), prefs.adult, (v) => ls.set("dd_adult", (prefs.adult = v)));
   $("#new-game-btn").addEventListener("click", () => (location.hash = "new"));
   $("#invite-btn").addEventListener("click", () => createGame(null));
   $("#people").addEventListener("click", (e) => {
@@ -339,10 +341,11 @@ async function createGame(partner) {
     createdAt: store.now(),
     lang: prefs.lang,
     wordLevel: prefs.level,
+    adult: prefs.adult !== "off",
     drawSecs: G.DRAW_SECS,
     players,
     cur: turnKey(0),
-    turns: { [turnKey(0)]: makeTurn(0, "a", new Set(), prefs.lang, prefs.level) },
+    turns: { [turnKey(0)]: makeTurn(0, "a", new Set(), prefs.lang, prefs.level, prefs.adult !== "off") },
   };
   try {
     if (!(await store.claim("games/" + id, data))) throw new Error("game id taken");
@@ -358,8 +361,8 @@ async function createGame(partner) {
   }
 }
 
-function makeTurn(n, drawer, used, lang, wordLevel) {
-  return { n, drawer, status: "draw", choices: G.pickChoices(lang, used, Math.random, wordLevel) };
+function makeTurn(n, drawer, used, lang, wordLevel, adult) {
+  return { n, drawer, status: "draw", choices: G.pickChoices(lang, used, Math.random, wordLevel, adult) };
 }
 
 // ---------- game model helpers ----------
@@ -561,13 +564,41 @@ function renderWordSetting() {
     });
   }
   for (const b of seg.children) b.setAttribute("aria-checked", b.dataset.v === cur);
+
+  const adultSeg = $("#adult-seg");
+  const adult = game.adult === false ? "off" : "on";
+  if (!adultSeg.children.length) {
+    adultSeg.innerHTML = Object.entries(ADULT_LABELS).map(([v, l]) => `<button type="button" role="radio" data-v="${v}">${l}</button>`).join("");
+    adultSeg.addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (b && b.dataset.v !== (game.adult === false ? "off" : "on")) setAdult(b.dataset.v === "on");
+    });
+  }
+  for (const b of adultSeg.children) b.setAttribute("aria-checked", b.dataset.v === adult);
+}
+
+// Adult words in or out, for both players, any time. An unpicked word choice is drawn again
+// (the words kept for switching Easy / Mixed / Hard are dropped, as they may hold adult words).
+async function setAdult(on) {
+  const t = curTurn(game);
+  const patch = { adult: on };
+  if (t.status === "draw" && !t.word) {
+    patch[`turns/${game.cur}/choices`] = G.pickChoices(game.lang, usedWords(game), Math.random, game.wordLevel, on);
+    patch[`turns/${game.cur}/choiceSets`] = null;
+  }
+  try {
+    await store.update(`games/${gameId}`, patch);
+  } catch (err) {
+    console.error(err);
+    toast("Couldn't change the words. Check your connection.");
+  }
 }
 
 async function setWordLevel(v) {
   const t = curTurn(game);
   const patch = { wordLevel: v };
   if (t.status === "draw" && !t.word) {
-    const pick = (s) => G.pickChoices(game.lang, usedWords(game), Math.random, s);
+    const pick = (s) => G.pickChoices(game.lang, usedWords(game), Math.random, s, game.adult !== false);
     const next = G.switchChoices(t, game.wordLevel ?? "mixed", v, pick);
     patch[`turns/${game.cur}/choices`] = next.choices;
     patch[`turns/${game.cur}/choiceSets`] = next.choiceSets;
@@ -906,7 +937,7 @@ function panelGuess(panel, seat) {
     const patch = {
       [`turns/${key}/status`]: "done",
       [`turns/${key}/result`]: { correct, ms: Math.round(ms), drawerPts: pts.drawer, guesserPts: pts.guesser },
-      [`turns/${nextKey}`]: makeTurn(t.n + 1, seat, used, game.lang, game.wordLevel),
+      [`turns/${nextKey}`]: makeTurn(t.n + 1, seat, used, game.lang, game.wordLevel, game.adult !== false),
       cur: nextKey,
     };
     try {

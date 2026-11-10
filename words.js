@@ -131,7 +131,8 @@ export const WORDS = {
 };
 
 // Adult words (Jonas, 2026-11-08: "include dirty words in the word lists"), mixed into the
-// lists above by how hard they are to draw. Delete this block to make the game clean again.
+// lists above by how hard they are to draw. Each game includes them unless its players switch
+// them off (game.adult === false).
 const ADULT = {
   en: {
     easy: ["bra", "boobs", "butt", "thong", "condom", "naked", "whip", "handcuffs", "nipple", "penis", "lube", "dildo", "vibrator", "blindfold", "horny", "hickey",
@@ -169,6 +170,8 @@ const ADULT = {
   },
 };
 for (const [lang, levels] of Object.entries(ADULT)) for (const [level, words] of Object.entries(levels)) WORDS[lang][level].push(...words);
+// A game can leave them out (game.adult === false); these sets say which words they are.
+export const ADULT_WORDS = Object.fromEntries(Object.entries(ADULT).map(([lang, levels]) => [lang, new Set(Object.values(levels).flat())]));
 
 // Doctor Who creatures with a look you can draw (Jonas, 2026-11-09), under their English names in
 // both languages: the best known in medium, the rest in hard.
