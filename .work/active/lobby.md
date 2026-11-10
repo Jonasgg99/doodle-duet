@@ -33,6 +33,7 @@ Players with their own sign-in, several games at once, a home page listing your 
 - Steps 2 and 3 of Next on the real phones.
 
 ## Verified
+- Pages serves the players/lists build; live firebase e2e passed against https://jonasgg99.github.io/doodle-duet/ @dccbd5a. Real game and real players not touched.
 - Local: unit (29), lobby e2e (first visit, list live, invite link, pick a player, two games at once, `main` in the list with scores), two-player, push (incl. list sync for partners only, not for a stranger's game) and stale-deploy e2e passed @a671be2+dirty. Live rules published by Jonas; firebase e2e on localhost against them (incl. all stranger refusals, odd names refused, test players cleaned up) passed @07e67b7+dirty.
 - Live `signin-test.html` on Pages: the pop-up reaches accounts.google.com (provider on, domain authorized), headless, no sign-in completed @b683227. Phone test pending.
 - Jonas's phone, Chrome (2026-11-10 21:02): linkWithPopup signed in as his Google account and kept the same player id. Installed-app run not reported yet.
