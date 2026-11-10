@@ -20,7 +20,6 @@ import {
   missedGuesses,
   resultIsNew,
   turnsInOrder,
-  letterHint,
   switchChoices,
   gameStatus,
   sortGames,
@@ -146,13 +145,13 @@ test("adult words: left out of the choices when the game excludes them", () => {
 test("games list: each game says who you play and whose move it is", () => {
   const players = { a: { uid: "u1", name: "Jonas" }, b: { uid: "u2", name: "Ida" } };
   const st = (turn, me, ps = players) => gameStatus({ players: ps, turn }, me);
-  assert.deepEqual(st({ drawer: "a", status: "draw", n: 0 }, "u1"), { them: "Ida", mine: true, text: "Your turn to draw", round: 1 });
-  assert.deepEqual(st({ drawer: "a", status: "draw", n: 0 }, "u2"), { them: "Jonas", mine: false, text: "Waiting for Jonas to draw", round: 1 });
-  assert.deepEqual(st({ drawer: "a", status: "guess", n: 4 }, "u1"), { them: "Ida", mine: false, text: "Waiting for Ida to guess", round: 5 });
-  assert.deepEqual(st({ drawer: "a", status: "guess", n: 4 }, "u2"), { them: "Jonas", mine: true, text: "Your turn to guess", round: 5 });
+  assert.deepEqual(st({ drawer: "a", status: "draw", n: 0 }, "u1"), { them: "Ida", mine: true, kind: "draw", round: 1 });
+  assert.deepEqual(st({ drawer: "a", status: "draw", n: 0 }, "u2"), { them: "Jonas", mine: false, kind: "waitDraw", round: 1 });
+  assert.deepEqual(st({ drawer: "a", status: "guess", n: 4 }, "u1"), { them: "Ida", mine: false, kind: "waitGuess", round: 5 });
+  assert.deepEqual(st({ drawer: "a", status: "guess", n: 4 }, "u2"), { them: "Jonas", mine: true, kind: "guess", round: 5 });
   const alone = { a: players.a };
-  assert.deepEqual(st({ drawer: "a", status: "draw", n: 0 }, "u1", alone), { them: null, mine: true, text: "Your turn to draw", round: 1 });
-  assert.deepEqual(st({ drawer: "a", status: "guess", n: 0 }, "u1", alone), { them: null, mine: false, text: "Waiting for someone to join", round: 1 });
+  assert.deepEqual(st({ drawer: "a", status: "draw", n: 0 }, "u1", alone), { them: null, mine: true, kind: "draw", round: 1 });
+  assert.deepEqual(st({ drawer: "a", status: "guess", n: 0 }, "u1", alone), { them: null, mine: false, kind: "waitJoin", round: 1 });
   assert.equal(st({ drawer: "a", status: "draw", n: 0 }, "u3"), null, "not your game");
 });
 
@@ -165,7 +164,7 @@ test("games list survives games with odd data from another player", () => {
     status: gameStatus({ players: { a: { uid: "u1", name }, b: { uid: "u2", name: "Ida" } }, turn: { drawer: "a", status: "draw", n: 0 } }, "u2"),
   }));
   assert.equal(sortGames(rows).length, 4);
-  assert.equal(gameStatus({ players: { a: { uid: "u1" }, b: { uid: "u2" } }, turn: { drawer: "a", status: "guess", n: 0 } }, "u2").them, "Player");
+  assert.equal(gameStatus({ players: { a: { uid: "u1" }, b: { uid: "u2" } }, turn: { drawer: "a", status: "guess", n: 0 } }, "u2").them, "", "a missing name is left for the app to word");
 });
 
 test("games list order: your move first, then by name, games nobody joined last", () => {
@@ -238,9 +237,3 @@ test("replay compresses long pauses between strokes and keeps drawing speed", ()
   assert.deepEqual(replayTimeline([], 1500), { times: [], duration: 0 });
 });
 
-test("letter hint: the count per word, so the guesser doesn't have to count blanks", () => {
-  assert.equal(letterHint("elephant"), "8 letters");
-  assert.equal(letterHint("ice cream"), "3 + 5 letters");
-  assert.equal(letterHint("blåbær"), "6 letters");
-  assert.equal(letterHint("a"), "1 letter");
-});

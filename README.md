@@ -15,6 +15,8 @@ Open the game link in Chrome (or Samsung Internet) and use **Add to home screen 
 
 The site is **jonasgg99.github.io/doodle-duet**. The first time, you make your player: type the name others see and sign in with Google, so your games follow you to any phone or browser where you sign in with the same account. The game keeps only your name.
 
+The app is in Norwegian on a phone set to Norwegian and in English otherwise; **App language** at the bottom of Your games switches it. Notifications and share messages to the other player are written in their language.
+
 The site opens on **Your games**, with the games where it's your move first. **New game** picks the language and words, then either someone from the list of players (the game shows up in their list straight away) or **Invite someone with a link** for a person who hasn't made a player yet: whoever opens the link and taps **Join game** gets the seat. You always draw first. Tapping Send after drawing opens your phone's share sheet so you can tell the other player; if the timer sent the drawing for you, use the Nudge button.
 
 To skip that: on the waiting screen, tap **Notify me when it's my turn** and allow notifications. From then on the other player's Send gives you a phone notification instead, with no app to install. Opening your games list keeps this phone's notifications on in all your games. Notifications go through a small Cloudflare Worker and your browser's push service (Google's, for Chrome on Android); the message is encrypted for your phone on the way.

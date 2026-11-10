@@ -6,7 +6,8 @@
 // Run: node tests/two-player.e2e.mjs [screenshot-dir]
 import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
-import { letterHint } from "../game.js";
+import { translator } from "../i18n.js";
+const letterHint = (word) => translator("en")("letters", { word });
 
 const pwPath = process.env.PLAYWRIGHT || "D:/Apps/quiz-maker/node_modules/@playwright/test/index.mjs";
 const { chromium } = await import(pathToFileURL(pwPath).href);

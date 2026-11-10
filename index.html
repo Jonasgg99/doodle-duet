@@ -20,7 +20,7 @@
     // hasn't started (app.js sets __ddStarted) after a startup error or 10 s, re-download every
     // file, bypassing the cache, and reload. At most once a minute, so a bad connection can't loop.
     (function () {
-      var FILES = ["./", "index.html", "app.js", "game.js", "store.js", "words.js", "firebase-config.js", "push.js", "push-config.js", "style.css"];
+      var FILES = ["./", "index.html", "app.js", "game.js", "store.js", "words.js", "firebase-config.js", "push.js", "push-config.js", "i18n.js", "style.css"];
       var timer;
       function heal() {
         clearTimeout(timer);
@@ -31,6 +31,18 @@
         if (Date.now() - last < 60000) {
           var s = document.getElementById("stuck");
           if (s) s.hidden = false;
+          // The app couldn't start to translate this, so it's done here (same rule as detectLang in i18n.js).
+          var no = false;
+          try {
+            var o = localStorage.getItem("dd_ui");
+            var l = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language];
+            no = o === '"no"' || (o !== '"en"' && /^(nb|nn|no)(-|$)/i.test(l[0] || ""));
+          } catch (e) {}
+          if (no && s) {
+            s.parentNode.querySelector("p").textContent = "Laster…";
+            s.querySelector("p").textContent = "Dette tar for lang tid. Sjekk nettet og prøv igjen.";
+            s.querySelector("button").textContent = "Last inn på nytt";
+          }
           return;
         }
         try { sessionStorage.setItem("dd_heal", String(Date.now())); } catch (e) {}
@@ -47,13 +59,13 @@
 <body>
   <header class="topbar">
     <a href="./" class="brand" id="brand">Doodle&nbsp;Duet</a>
-    <a href="#" class="back-link" id="back-link" hidden>‹ Games</a>
-    <span class="mode-tag" id="mode-tag" hidden>local test mode</span>
+    <a href="#" class="back-link" id="back-link" data-i18n="backToGames" hidden>‹ Games</a>
+    <span class="mode-tag" id="mode-tag" data-i18n="localMode" hidden>local test mode</span>
   </header>
 
   <main>
     <section id="view-loading" class="view">
-      <p class="muted">Loading…</p>
+      <p class="muted" data-i18n="loading">Loading…</p>
       <div class="card stack" id="stuck" hidden>
         <p>This is taking too long. Check your internet connection, then try again.</p>
         <button class="btn primary" type="button" onclick="location.reload()">Reload</button>
@@ -62,56 +74,60 @@
 
     <section id="view-setup" class="view" hidden>
       <div class="card stack">
-        <h2>Make your player</h2>
-        <p class="muted">One of you draws a word, the other watches it being drawn and guesses, then you swap. Play as many games as you like, with anyone who has a player.</p>
-        <label class="label" for="player-name">Your name</label>
-        <input id="player-name" class="input" maxlength="20" autocomplete="nickname" placeholder="The name other players see">
+        <h2 data-i18n="setupTitle">Make your player</h2>
+        <p class="muted" data-i18n="setupIntro">One of you draws a word, the other watches it being drawn and guesses, then you swap. Play as many games as you like, with anyone who has a player.</p>
+        <label class="label" for="player-name" data-i18n="yourName">Your name</label>
+        <input id="player-name" class="input" maxlength="20" autocomplete="nickname" placeholder="The name other players see" data-i18n-placeholder="namePlaceholder">
         <button id="signin-btn" class="btn primary">Continue with Google</button>
-        <p class="muted small" id="google-note">Signing in keeps your games when you switch phone or browser: sign in with the same Google account there. Doodle Duet keeps only the name you type here.</p>
+        <p class="muted small" id="google-note" data-i18n="googleNote">Signing in keeps your games when you switch phone or browser: sign in with the same Google account there. Doodle Duet keeps only the name you type here.</p>
         <p class="error" id="setup-error" hidden></p>
       </div>
     </section>
 
     <section id="view-list" class="view" hidden>
       <div class="list-head">
-        <h2>Your games</h2>
+        <h2 data-i18n="yourGames">Your games</h2>
         <span class="muted small" id="me-name"></span>
       </div>
-      <p class="muted" id="list-empty" hidden>No games yet. Start one, then pick someone to play with or send them a link.</p>
+      <p class="muted" id="list-empty" data-i18n="listEmpty" hidden>No games yet. Start one, then pick someone to play with or send them a link.</p>
       <ul class="games-list" id="games-list"></ul>
-      <button id="new-game-btn" class="btn primary">New game</button>
+      <button id="new-game-btn" class="btn primary" data-i18n="newGame">New game</button>
+      <div class="word-setting">
+        <span class="muted small" id="ui-label" data-i18n="appLanguage">App language</span>
+        <div class="seg" id="ui-seg" role="radiogroup" aria-labelledby="ui-label"></div>
+      </div>
     </section>
 
     <section id="view-new" class="view" hidden>
       <div class="card stack">
-        <h2>New game</h2>
+        <h2 data-i18n="newGame">New game</h2>
         <div class="field">
-          <span class="label" id="lang-label">Language</span>
+          <span class="label" id="lang-label" data-i18n="wordLanguage">Language</span>
           <div class="seg" id="lang-seg" role="radiogroup" aria-labelledby="lang-label"></div>
         </div>
         <div class="field">
-          <span class="label" id="level-label">Words</span>
+          <span class="label" id="level-label" data-i18n="words">Words</span>
           <div class="seg" id="level-seg" role="radiogroup" aria-labelledby="level-label"></div>
         </div>
         <div class="field">
-          <span class="label" id="new-adult-label">Adult words</span>
+          <span class="label" id="new-adult-label" data-i18n="adultWords">Adult words</span>
           <div class="seg" id="new-adult-seg" role="radiogroup" aria-labelledby="new-adult-label"></div>
         </div>
       </div>
       <div class="card stack">
-        <h2>Play with</h2>
+        <h2 data-i18n="playWith">Play with</h2>
         <div class="people" id="people"></div>
-        <p class="muted small" id="people-empty" hidden>Nobody else has made a player yet.</p>
-        <button id="invite-btn" class="btn">Invite someone with a link</button>
-        <p class="muted small">You draw first. The game shows up in their list straight away; someone who isn't in the list joins by opening the link you send.</p>
+        <p class="muted small" id="people-empty" data-i18n="peopleEmpty" hidden>Nobody else has made a player yet.</p>
+        <button id="invite-btn" class="btn" data-i18n="inviteWithLink">Invite someone with a link</button>
+        <p class="muted small" data-i18n="newGameNote">You draw first. The game shows up in their list straight away; someone who isn't in the list joins by opening the link you send.</p>
       </div>
     </section>
 
     <section id="view-join" class="view" hidden>
       <div class="card stack">
-        <h2 id="join-title">You're invited</h2>
+        <h2 id="join-title" data-i18n="invitedTitle">You're invited</h2>
         <p class="muted" id="join-sub"></p>
-        <button id="join-btn" class="btn primary">Join game</button>
+        <button id="join-btn" class="btn primary" data-i18n="joinGame">Join game</button>
         <p class="error" id="join-error" hidden></p>
       </div>
     </section>
@@ -126,15 +142,15 @@
       <div class="scoreboard" id="scoreboard"></div>
       <div id="panel" class="panel"></div>
       <div class="word-setting" id="word-setting">
-        <span class="muted small">Words</span>
-        <div class="seg" id="word-seg" role="radiogroup" aria-label="Word difficulty"></div>
+        <span class="muted small" data-i18n="words">Words</span>
+        <div class="seg" id="word-seg" role="radiogroup" aria-label="Word difficulty" data-i18n-aria-label="wordDifficulty"></div>
       </div>
       <div class="word-setting">
-        <span class="muted small">Adult words</span>
-        <div class="seg" id="adult-seg" role="radiogroup" aria-label="Adult words"></div>
+        <span class="muted small" data-i18n="adultWords">Adult words</span>
+        <div class="seg" id="adult-seg" role="radiogroup" aria-label="Adult words" data-i18n-aria-label="adultWords"></div>
       </div>
       <div class="history-wrap" id="history-wrap" hidden>
-        <h2 class="section-title">Earlier rounds</h2>
+        <h2 class="section-title" data-i18n="earlierRounds">Earlier rounds</h2>
         <ul class="history" id="history"></ul>
       </div>
       <button type="button" class="reseat-btn" id="reseat-btn" hidden></button>

@@ -2,6 +2,7 @@ import { openStore, randomId } from "./store.js";
 import { LANG_NAMES } from "./words.js";
 import * as G from "./game.js";
 import * as P from "./push.js";
+import { detectLang, translator } from "./i18n.js";
 
 // ---------- constants ----------
 const W = 1000, H = 1500; // logical canvas size; strokes are stored in these units
@@ -27,16 +28,28 @@ const ls = {
     } catch {}
   },
 };
+// The app's language: the switch on the games list, else the phone's. Text for the other player
+// (notification, share sheet) uses theirs when the game knows it (players/<seat>/lang).
+const LANG = detectLang(ls.get("dd_ui"), navigator.languages?.length ? navigator.languages : [navigator.language]);
+const t = translator(LANG);
+const tFor = (lang) => translator(lang ?? LANG);
+function translatePage() {
+  document.documentElement.lang = LANG === "no" ? "nb" : "en";
+  for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
+  for (const el of document.querySelectorAll("[data-i18n-placeholder]")) el.placeholder = t(el.dataset.i18nPlaceholder);
+  for (const el of document.querySelectorAll("[data-i18n-aria-label]")) el.setAttribute("aria-label", t(el.dataset.i18nAriaLabel));
+}
+
 const secs = (ms) => Math.max(0, Math.ceil(ms / 1000));
 const turnKey = (n) => "t" + String(n).padStart(3, "0");
 
 let toastTimer;
 function toast(msg) {
-  const t = $("#toast");
-  t.textContent = msg;
-  t.hidden = false;
+  const el = $("#toast");
+  el.textContent = msg;
+  el.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (t.hidden = true), 2600);
+  toastTimer = setTimeout(() => (el.hidden = true), 2600);
 }
 
 let wakeLock = null;
@@ -59,8 +72,8 @@ let panelKey = null; // which panel is on screen, so live updates don't restart 
 let drawing = null; // active drawing session
 let guessing = null; // active guessing session
 let offView = []; // unsubscribes for the games list and new-game screens
-const prefs = { name: ls.get("dd_name", ""), lang: ls.get("dd_lang", "en"), level: ls.get("dd_level", "mixed"), adult: ls.get("dd_adult", "on") };
-const ADULT_LABELS = { on: "Include", off: "Leave out" };
+const prefs = { name: ls.get("dd_name", ""), lang: ls.get("dd_lang", LANG), level: ls.get("dd_level", "mixed"), adult: ls.get("dd_adult", "on") };
+const ADULT_LABELS = { on: t("adult_on"), off: t("adult_off") };
 
 // ---------- views ----------
 function show(view) {
@@ -80,13 +93,14 @@ function showError(msg) {
 // Routes: no hash = your games; #new = start a game; #<id> = that game. Before any of them, a
 // first visit makes a player (name + Google sign-in).
 async function boot() {
+  translatePage();
   try {
     store = await openStore();
     me = store.uid;
     profile = await store.get("players/" + me);
   } catch (e) {
     console.error(e);
-    showError("Couldn't connect to the game server. Check your connection and reload.");
+    showError(t("connectFailed"));
     return;
   }
   $("#mode-tag").hidden = store.mode !== "local";
@@ -125,6 +139,10 @@ function setupViews() {
     if (b) createGame({ uid: b.dataset.uid, name: b.dataset.name });
   });
   $("#signin-btn").addEventListener("click", makePlayer);
+  segmented($("#ui-seg"), [["en", "English"], ["no", "Norsk"]], LANG, (v) => {
+    ls.set("dd_ui", v);
+    location.reload();
+  });
 }
 
 function segmented(el, options, current, onPick) {
@@ -144,7 +162,7 @@ function showSetup() {
   show("setup");
   const input = $("#player-name");
   if (!input.value) input.value = profile?.name || prefs.name;
-  $("#signin-btn").textContent = store.signedIn ? "Continue" : "Continue with Google";
+  $("#signin-btn").textContent = store.signedIn ? t("continue") : t("continueWithGoogle");
   $("#google-note").hidden = store.signedIn;
 }
 
@@ -154,7 +172,7 @@ async function makePlayer() {
   const name = $("#player-name").value.trim().slice(0, 20);
   err.hidden = true;
   if (!name) {
-    err.textContent = "Type the name other players will see.";
+    err.textContent = t("nameNeeded");
     err.hidden = false;
     return;
   }
@@ -172,12 +190,9 @@ async function makePlayer() {
     route();
   } catch (e) {
     console.error(e);
-    const inApp = "If you opened this from Messenger or another app, Google won't sign in there: open it in Chrome instead (⋮ → Open in Chrome).";
     err.textContent = store.signedIn
-      ? "Couldn't save your name. Check your connection and try again."
-      : /popup-closed-by-user|cancelled-popup-request|user-cancelled/.test(e.code || "")
-        ? "Sign-in was cancelled. Tap the button to try again. " + inApp
-        : "Couldn't sign in. " + inApp;
+      ? t("saveNameFailed")
+      : (/popup-closed-by-user|cancelled-popup-request|user-cancelled/.test(e.code || "") ? t("signInCancelled") : t("signInFailed")) + " " + t("inAppBrowser");
     err.hidden = false;
   } finally {
     btn.disabled = false;
@@ -188,26 +203,26 @@ async function makePlayer() {
 // Reads only each game's players, current round and whose move it is, never the drawings.
 function showList() {
   show("list");
-  $("#me-name").textContent = `Playing as ${profile.name}`;
+  $("#me-name").textContent = t("playingAs", { name: profile.name });
   const games = new Map(); // id -> {players, turn, off: [unsubscribe…]}
   let loaded = false;
   const render = () => {
     const rows = [];
     let waiting = false;
     for (const [id, g] of games) {
-      const t = g.turn;
-      if (g.players === undefined || t === undefined || (t && (t.drawer === undefined || t.status === undefined || t.n === undefined))) waiting = true;
-      if (!g.players || !t || t.drawer == null || t.status == null || t.n == null) continue;
-      const status = G.gameStatus({ players: g.players, turn: t }, me);
+      const turn = g.turn;
+      if (g.players === undefined || turn === undefined || (turn && (turn.drawer === undefined || turn.status === undefined || turn.n === undefined))) waiting = true;
+      if (!g.players || !turn || turn.drawer == null || turn.status == null || turn.n == null) continue;
+      const status = G.gameStatus({ players: g.players, turn }, me);
       if (status) rows.push({ id, status });
     }
     $("#list-empty").hidden = !loaded || waiting || rows.length > 0;
     $("#games-list").innerHTML = G.sortGames(rows)
       .map(
         ({ id, status: s }) => `<li><a class="game-row${s.mine ? " mine" : ""}" href="#${esc(id)}">
-          <span class="gr-them">${esc(s.them ?? "Invite sent")}</span>
-          <span class="gr-status">${esc(s.text)}</span>
-          <span class="gr-round">Round ${esc(s.round)}</span>
+          <span class="gr-them">${esc(s.them ?? t("inviteSent"))}</span>
+          <span class="gr-status">${esc(t("st_" + s.kind, { name: s.them || t("player") }))}</span>
+          <span class="gr-round">${esc(t("round", { n: s.round }))}</span>
         </a></li>`
       )
       .join("");
@@ -264,7 +279,7 @@ function showList() {
       },
       (err) => {
         console.error(err);
-        showError("Couldn't load your games. Check your connection and reload.");
+        showError(t("loadGamesFailed"));
       }
     ),
     () => [...games.keys()].forEach(drop)
@@ -334,7 +349,7 @@ async function createGame(partner) {
   const btns = document.querySelectorAll("#view-new button");
   for (const b of btns) b.disabled = true;
   const id = randomId(10);
-  const players = { a: { uid: me, name: profile.name } };
+  const players = { a: { uid: me, name: profile.name, lang: LANG } };
   if (partner) players.b = partner;
   const data = {
     v: 1,
@@ -354,7 +369,7 @@ async function createGame(partner) {
     location.hash = id;
   } catch (e) {
     console.error(e);
-    toast("Couldn't start the game. Check your connection and try again.");
+    toast(t("startGameFailed"));
   } finally {
     creating = false;
     for (const b of btns) b.disabled = false;
@@ -368,12 +383,14 @@ function makeTurn(n, drawer, used, lang, wordLevel, adult) {
 // ---------- game model helpers ----------
 const seatOf = (g) => (g?.players?.a?.uid === me ? "a" : g?.players?.b?.uid === me ? "b" : null);
 const turnList = (g) => G.turnsInOrder(g?.turns);
-const nameOf = (g, seat) => g.players?.[seat]?.name || (seat === "a" ? "Player 1" : "Player 2");
+const nameOf = (g, seat) => g.players?.[seat]?.name || (seat === "a" ? t("player1") : t("player2"));
+// The other player's translator, for text they read (their language, when the game knows it).
+const tThem = (g, seat) => tFor(g.players?.[G.otherSeat(seat)]?.lang);
 const curTurn = (g) => g.turns[g.cur];
-const guessDeadline = (g, t) => t.guessStartedAt + G.guessLimitMs(g.drawSecs);
+const guessDeadline = (g, turn) => turn.guessStartedAt + G.guessLimitMs(g.drawSecs);
 
 function usedWords(g) {
-  return new Set(turnList(g).map((t) => t.word).filter(Boolean));
+  return new Set(turnList(g).map((turn) => turn.word).filter(Boolean));
 }
 
 // ---------- open / join ----------
@@ -388,28 +405,24 @@ function openGame(id) {
     },
     (err) => {
       console.error(err);
-      showError(
-        "This game is already being played by two other players, so it can't be opened here. " +
-          "If you're one of them on another phone or browser, sign in with the same Google account you use there, " +
-          'or ask your partner to tap "Let … join again" at the bottom of the game, then reload this page.'
-      );
+      showError(t("seatTaken"));
     }
   );
 }
 
 function showJoin() {
   show("join");
-  $("#join-title").textContent = `${nameOf(game, "a")} invited you to Doodle Duet`;
-  $("#join-sub").textContent = `One of you draws, the other guesses, then you swap. ${game.drawSecs} seconds to draw each word.`;
+  $("#join-title").textContent = t("joinTitle", { name: nameOf(game, "a") });
+  $("#join-sub").textContent = t("joinSub", { secs: game.drawSecs });
   $("#join-btn").onclick = async () => {
     $("#join-btn").disabled = true;
     try {
-      const ok = await store.claim(`games/${gameId}/players/b`, { uid: me, name: profile.name });
+      const ok = await store.claim(`games/${gameId}/players/b`, { uid: me, name: profile.name, lang: LANG });
       if (!ok) throw new Error("taken");
     } catch (e) {
       console.error(e);
       const err = $("#join-error");
-      err.textContent = "Someone else already joined this game.";
+      err.textContent = t("joinTaken");
       err.hidden = false;
     } finally {
       $("#join-btn").disabled = false;
@@ -425,20 +438,28 @@ function keepInList(id) {
   store.set(`users/${me}/games/${id}`, true).catch((err) => (console.error(err), listed.delete(id)));
 }
 
+// Your seat in the game says which language you read, so the other player's phone can write to
+// you in it. Once per game and page load, and only when it changed.
+const langSaved = new Set();
+function saveLang(seat) {
+  if (game.players[seat]?.lang === LANG || langSaved.has(gameId)) return;
+  const id = gameId;
+  langSaved.add(id);
+  store.set(`games/${id}/players/${seat}/lang`, LANG).catch((err) => (console.error(err), langSaved.delete(id)));
+}
+
 // ---------- game rendering ----------
 function renderGame() {
-  if (!game) return showError("This game doesn't exist. Tap ‹ Games to see yours or start a new one.");
+  if (!game) return showError(t("gameMissing"));
   const seat = seatOf(game);
   if (!seat) {
     if (!game.players.b) return showJoin();
     const [a, b] = [nameOf(game, "a"), nameOf(game, "b")];
-    return showError(
-      `This game already has two players on other devices. If you're ${b} on a new phone or browser, ` +
-        `ask ${a} to tap "Let ${b} join again" at the bottom of the game, then reload this page.`
-    );
+    return showError(t("twoOthers", { a, b }));
   }
   show("game");
   keepInList(gameId);
+  saveLang(seat);
   rememberPartner(game.players[G.otherSeat(seat)]?.uid);
   syncPush(seat);
   renderScoreboard(seat);
@@ -481,8 +502,10 @@ function resultBanner(seat) {
   const other = nameOf(game, G.otherSeat(seat));
   const team = G.teamScore(turnList(game).filter((x) => x.n <= last.n));
   const pts = G.teamScore([last]).points;
-  const head = r.correct ? (iDrew ? `${other} got it!` : "You got it!") : iDrew ? `${other} didn't get it` : "Not this time";
-  const sub = r.correct ? `"${last.word}" in ${secs(r.ms)} s · +${pts} points` + (team.streak > 1 ? ` · ${team.streak} in a row` : "") : `It was "${last.word}". No points this round.`;
+  const head = r.correct ? (iDrew ? t("theyGotIt", { name: other }) : t("youGotIt")) : iDrew ? t("theyMissed", { name: other }) : t("youMissed");
+  const sub = r.correct
+    ? `${t("wonIn", { word: last.word, s: secs(r.ms) })} · ${t("plusPoints", { n: pts })}` + (team.streak > 1 ? ` · ${t("inARowSuffix", { n: team.streak })}` : "")
+    : t("missSub", { word: last.word });
   const missed = G.missedGuesses(last);
   const key = turnKey(last.n);
   const el = document.createElement("div");
@@ -490,9 +513,9 @@ function resultBanner(seat) {
   el.dataset.key = key;
   el.innerHTML = `<canvas class="thumb"></canvas><div class="h-text">
     <strong class="rb-head">${esc(head)}</strong><span class="small">${esc(sub)}</span>
-    ${missed.length ? `<span class="small muted">${iDrew ? esc(other) + " guessed" : "You guessed"}: ${missed.map(esc).join(" · ")}</span>` : ""}
+    ${missed.length ? `<span class="small muted">${esc(iDrew ? t("theyGuessed", { name: other }) : t("youGuessed"))}: ${missed.map(esc).join(" · ")}</span>` : ""}
     <span class="small rb-note" hidden></span>
-    ${iDrew ? "" : `<form class="note-form" autocomplete="off"><input class="input note-input" maxlength="120" placeholder="Message to ${esc(other)}" enterkeyhint="send"><button class="btn small-btn">Send</button></form>`}
+    ${iDrew ? "" : `<form class="note-form" autocomplete="off"><input class="input note-input" maxlength="120" placeholder="${esc(t("messageTo", { name: other }))}" enterkeyhint="send"><button class="btn small-btn">${esc(t("send"))}</button></form>`}
   </div>`;
   el.querySelector(".note-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -503,7 +526,7 @@ function resultBanner(seat) {
       fillNote(el, { ...last, note: { text } }, seat);
     } catch (err) {
       console.error(err);
-      toast("Couldn't send your message. Check your connection.");
+      toast(t("noteFailed"));
     }
   });
   fillNote(el, last, seat);
@@ -515,23 +538,23 @@ function resultBanner(seat) {
 }
 
 // The guesser's message about a round, shown on the banner once written (live for the drawer).
-const noteLine = (t, seat) => `${t.drawer === seat ? nameOf(game, G.otherSeat(seat)) : "You"}: "${t.note.text}"`;
-function fillNote(el, t, seat) {
-  if (!t?.note?.text) return;
+const noteLine = (turn, seat) => `${turn.drawer === seat ? nameOf(game, G.otherSeat(seat)) : t("you")}: "${turn.note.text}"`;
+function fillNote(el, turn, seat) {
+  if (!turn?.note?.text) return;
   const line = el.querySelector(".rb-note");
-  line.textContent = noteLine(t, seat);
+  line.textContent = noteLine(turn, seat);
   line.hidden = false;
   el.querySelector(".note-form")?.remove();
 }
 
 function pickPanel(seat) {
-  const t = curTurn(game);
-  if (t.drawer === seat) {
-    if (t.status === "draw") return t.word ? "draw:" + t.n : "choose:" + t.n + ":" + t.choices.map((c) => c.word).join("|");
-    return "wait:" + t.n + ":" + (game.players.b ? "guess" : "join");
+  const turn = curTurn(game);
+  if (turn.drawer === seat) {
+    if (turn.status === "draw") return turn.word ? "draw:" + turn.n : "choose:" + turn.n + ":" + turn.choices.map((c) => c.word).join("|");
+    return "wait:" + turn.n + ":" + (game.players.b ? "guess" : "join");
   }
-  if (t.status === "draw") return "wait:" + t.n + ":draw";
-  return (t.guessStartedAt ? "guess:" : "ready:") + t.n;
+  if (turn.status === "draw") return "wait:" + turn.n + ":draw";
+  return (turn.guessStartedAt ? "guess:" : "ready:") + turn.n;
 }
 
 // Both players score together: one shared score and the streak of rounds guessed in a row.
@@ -539,25 +562,25 @@ function renderScoreboard(seat) {
   const { points, streak } = G.teamScore(turnList(game));
   const cur = curTurn(game);
   const name = (s) =>
-    `<span class="pname p-${s}${s === seat ? " is-me" : ""}">${esc(nameOf(game, s))}${s === seat ? ' <span class="you">you</span>' : ""}</span>`;
+    `<span class="pname p-${s}${s === seat ? " is-me" : ""}">${esc(nameOf(game, s))}${s === seat ? ` <span class="you">${esc(t("youTag"))}</span>` : ""}</span>`;
   $("#scoreboard").innerHTML = `
     <div class="team-names">${name("a")}<span class="amp">&amp;</span>${name("b")}</div>
     <div class="team-stats">
-      <div class="stat"><span class="snum" id="team-points">${esc(points)}</span><span class="slabel">points</span></div>
-      <div class="round">Round ${esc(cur.n + 1)}</div>
-      <div class="stat streak${streak > 1 ? " hot" : ""}"><span class="snum" id="team-streak">${esc(streak)}</span><span class="slabel">in a row</span></div>
+      <div class="stat"><span class="snum" id="team-points">${esc(points)}</span><span class="slabel">${esc(t("points"))}</span></div>
+      <div class="round">${esc(t("round", { n: cur.n + 1 }))}</div>
+      <div class="stat streak${streak > 1 ? " hot" : ""}"><span class="snum" id="team-streak">${esc(streak)}</span><span class="slabel">${esc(t("inARow"))}</span></div>
     </div>`;
 }
 
 // Easy / Mixed / Hard, for both players, changeable any time. A word choice on screen that
 // hasn't been picked yet switches to the new setting's words (the same ones each time within a
 // round); otherwise it applies from the next round.
-const WORD_LABELS = { easy: "Easy", mixed: "Mixed", hard: "Hard" };
+const WORD_LABELS = Object.fromEntries(G.WORD_SETTINGS.map((v) => [v, t("level_" + v)]));
 function renderWordSetting() {
   const seg = $("#word-seg");
   const cur = game.wordLevel ?? "mixed";
   if (!seg.children.length) {
-    seg.innerHTML = G.WORD_SETTINGS.map((v) => `<button type="button" role="radio" data-v="${v}">${WORD_LABELS[v]}</button>`).join("");
+    seg.innerHTML = G.WORD_SETTINGS.map((v) => `<button type="button" role="radio" data-v="${v}">${esc(WORD_LABELS[v])}</button>`).join("");
     seg.addEventListener("click", (e) => {
       const b = e.target.closest("button");
       if (b && b.dataset.v !== (game.wordLevel ?? "mixed")) setWordLevel(b.dataset.v);
@@ -568,7 +591,7 @@ function renderWordSetting() {
   const adultSeg = $("#adult-seg");
   const adult = game.adult === false ? "off" : "on";
   if (!adultSeg.children.length) {
-    adultSeg.innerHTML = Object.entries(ADULT_LABELS).map(([v, l]) => `<button type="button" role="radio" data-v="${v}">${l}</button>`).join("");
+    adultSeg.innerHTML = Object.entries(ADULT_LABELS).map(([v, l]) => `<button type="button" role="radio" data-v="${v}">${esc(l)}</button>`).join("");
     adultSeg.addEventListener("click", (e) => {
       const b = e.target.closest("button");
       if (b && b.dataset.v !== (game.adult === false ? "off" : "on")) setAdult(b.dataset.v === "on");
@@ -580,9 +603,9 @@ function renderWordSetting() {
 // Adult words in or out, for both players, any time. An unpicked word choice is drawn again
 // (the words kept for switching Easy / Mixed / Hard are dropped, as they may hold adult words).
 async function setAdult(on) {
-  const t = curTurn(game);
+  const turn = curTurn(game);
   const patch = { adult: on };
-  if (t.status === "draw" && !t.word) {
+  if (turn.status === "draw" && !turn.word) {
     patch[`turns/${game.cur}/choices`] = G.pickChoices(game.lang, usedWords(game), Math.random, game.wordLevel, on);
     patch[`turns/${game.cur}/choiceSets`] = null;
   }
@@ -590,16 +613,16 @@ async function setAdult(on) {
     await store.update(`games/${gameId}`, patch);
   } catch (err) {
     console.error(err);
-    toast("Couldn't change the words. Check your connection.");
+    toast(t("wordsFailed"));
   }
 }
 
 async function setWordLevel(v) {
-  const t = curTurn(game);
+  const turn = curTurn(game);
   const patch = { wordLevel: v };
-  if (t.status === "draw" && !t.word) {
+  if (turn.status === "draw" && !turn.word) {
     const pick = (s) => G.pickChoices(game.lang, usedWords(game), Math.random, s, game.adult !== false);
-    const next = G.switchChoices(t, game.wordLevel ?? "mixed", v, pick);
+    const next = G.switchChoices(turn, game.wordLevel ?? "mixed", v, pick);
     patch[`turns/${game.cur}/choices`] = next.choices;
     patch[`turns/${game.cur}/choiceSets`] = next.choiceSets;
   }
@@ -607,7 +630,7 @@ async function setWordLevel(v) {
     await store.update(`games/${gameId}`, patch);
   } catch (err) {
     console.error(err);
-    toast("Couldn't change the words. Check your connection.");
+    toast(t("wordsFailed"));
   }
 }
 
@@ -619,60 +642,58 @@ function renderReseat(seat) {
   btn.hidden = seat !== "a" || !game.players.b;
   if (btn.hidden) return;
   const them = nameOf(game, "b");
-  btn.textContent = `Let ${them} join again from a new phone or browser`;
+  btn.textContent = t("reseatButton", { name: them });
   btn.onclick = async () => {
-    const ask = `Let ${them} join again from another phone or browser?\n\nThe one ${them} plays on now loses the game. Scores are kept. ${them} then opens the game there and taps Join.`;
+    const ask = t("reseatConfirm", { name: them });
     if (!confirm(ask)) return;
     try {
       await store.update(`games/${gameId}`, { "players/b": null, "push/b": null });
-      toast(`Send ${them} the link to join again.`);
+      toast(t("reseatDone", { name: them }));
     } catch (err) {
       console.error(err);
-      toast("Couldn't do that. Check your connection.");
+      toast(t("failed"));
     }
   };
 }
 
 function renderHistory(seat) {
-  const done = turnList(game).filter((t) => t.status === "done").reverse();
+  const done = turnList(game).filter((turn) => turn.status === "done").reverse();
   $("#history-wrap").hidden = !done.length;
   const ul = $("#history");
-  const sig = done.map((t) => t.n + (t.note?.text ?? "")).join(",");
+  const sig = done.map((turn) => turn.n + (turn.note?.text ?? "")).join(",");
   if (ul.dataset.sig === sig) return;
   ul.dataset.sig = sig;
   ul.innerHTML = "";
-  for (const t of done) {
+  for (const turn of done) {
     const li = document.createElement("li");
     const c = document.createElement("canvas");
     c.className = "thumb";
     li.append(c);
-    const r = t.result;
-    const by = t.drawer === seat ? "You drew" : `${esc(nameOf(game, t.drawer))} drew`;
-    const outcome = r.correct
-      ? `guessed in ${secs(r.ms)} s · +${esc(G.teamScore([t]).points)} points`
-      : "not guessed";
-    const missed = G.missedGuesses(t);
+    const r = turn.result;
+    const by = turn.drawer === seat ? t("youDrew") : t("theyDrew", { name: nameOf(game, turn.drawer) });
+    const outcome = r.correct ? `${t("guessedIn", { s: secs(r.ms) })} · ${t("plusPoints", { n: G.teamScore([turn]).points })}` : t("notGuessed");
+    const missed = G.missedGuesses(turn);
     li.insertAdjacentHTML(
       "beforeend",
-      `<div class="h-text"><span class="h-word">${esc(t.word)}</span><span class="muted small">${by} · ${outcome}</span>` +
-        (missed.length ? `<span class="muted small">Missed: ${missed.map(esc).join(" · ")}</span>` : "") +
-        (t.note?.text ? `<span class="small rb-note">${esc(noteLine(t, seat))}</span>` : "") +
+      `<div class="h-text"><span class="h-word">${esc(turn.word)}</span><span class="muted small">${esc(by)} · ${esc(outcome)}</span>` +
+        (missed.length ? `<span class="muted small">${esc(t("missed"))}: ${missed.map(esc).join(" · ")}</span>` : "") +
+        (turn.note?.text ? `<span class="small rb-note">${esc(noteLine(turn, seat))}</span>` : "") +
         `</div>`
     );
     ul.append(li);
     sizeCanvas(c, 96);
-    paint(c, parseStrokes(t.strokes), Infinity);
+    paint(c, parseStrokes(turn.strokes), Infinity);
   }
 }
 
 function updatePanel(seat) {
   // Live data changed but the same panel stays up: refresh what can change in place.
   if (panelKey.startsWith("wait:")) {
-    const t = curTurn(game);
+    const turn = curTurn(game);
     const el = $("#wait-extra");
-    if (el && t.status === "guess" && t.guessStartedAt && t.drawer === seat) {
-      const left = guessDeadline(game, t) - store.now();
-      el.textContent = left > 0 ? `${nameOf(game, G.otherSeat(seat))} is guessing right now…` : "Their guess time ran out. They'll see the answer next time they open the game.";
+    if (el && turn.status === "guess" && turn.guessStartedAt && turn.drawer === seat) {
+      const left = guessDeadline(game, turn) - store.now();
+      el.textContent = left > 0 ? t("guessingNow", { name: nameOf(game, G.otherSeat(seat)) }) : t("guessTimeUp");
     }
   }
 }
@@ -696,25 +717,25 @@ function tick() {
 
 // ---------- panel: choose a word ----------
 function panelChoose(panel) {
-  const t = curTurn(game);
+  const turn = curTurn(game);
   panel.innerHTML = `
     <div class="card stack">
-      <h2>Pick a word to draw</h2>
-      <p class="muted small">The ${esc(game.drawSecs)}-second timer starts as soon as you pick.</p>
+      <h2>${esc(t("pickWord"))}</h2>
+      <p class="muted small">${esc(t("timerStarts", { secs: game.drawSecs }))}</p>
       <div class="choices">
-        ${t.choices.map((c, i) => `<button class="choice" data-i="${i}"><span class="cw">${esc(c.word)}</span></button>`).join("")}
+        ${turn.choices.map((c, i) => `<button class="choice" data-i="${i}"><span class="cw">${esc(c.word)}</span></button>`).join("")}
       </div>
     </div>`;
   panel.querySelector(".choices").addEventListener("click", async (e) => {
     const b = e.target.closest("button");
     if (!b) return;
-    const c = t.choices[+b.dataset.i];
+    const c = turn.choices[+b.dataset.i];
     for (const x of panel.querySelectorAll("button")) x.disabled = true;
     try {
       await store.update(`games/${gameId}/turns/${game.cur}`, { word: c.word, level: c.level ?? null });
     } catch (err) {
       console.error(err);
-      toast("Couldn't save your pick. Check your connection.");
+      toast(t("pickFailed"));
       for (const x of panel.querySelectorAll("button")) x.disabled = false;
     }
   });
@@ -722,26 +743,26 @@ function panelChoose(panel) {
 
 // ---------- panel: draw ----------
 function panelDraw(panel, seat) {
-  const t = curTurn(game);
+  const turn = curTurn(game);
   const limit = game.drawSecs * 1000;
   panel.innerHTML = `
     <div class="draw-head">
-      <div><span class="muted small">Draw</span> <strong class="word">${esc(t.word)}</strong></div>
+      <div><span class="muted small">${esc(t("draw"))}</span> <strong class="word">${esc(turn.word)}</strong></div>
       <div class="timer" id="draw-timer">${esc(game.drawSecs)}</div>
     </div>
     <div class="timebar"><div class="timebar-fill" id="draw-bar"></div></div>
     <div class="canvas-box"><canvas class="art" id="draw-canvas"></canvas></div>
     <div class="tools">
       <div class="swatches" id="swatches">
-        ${COLORS.map((c, i) => `<button class="swatch ${i === ERASER ? "eraser" : ""}" style="--c:${c}" data-i="${i}" aria-label="${i === ERASER ? "Eraser" : "Colour " + (i + 1)}" aria-pressed="${i === 0}"></button>`).join("")}
+        ${COLORS.map((c, i) => `<button class="swatch ${i === ERASER ? "eraser" : ""}" style="--c:${c}" data-i="${i}" aria-label="${esc(i === ERASER ? t("eraser") : t("colour", { n: i + 1 }))}" aria-pressed="${i === 0}"></button>`).join("")}
       </div>
       <div class="tool-row">
         <div class="sizes" id="sizes">
-          ${SIZES.map((s, i) => `<button class="size" data-i="${i}" aria-label="Brush size ${i + 1}" aria-pressed="${i === 1}"><span style="--s:${6 + i * 7}px"></span></button>`).join("")}
+          ${SIZES.map((s, i) => `<button class="size" data-i="${i}" aria-label="${esc(t("brushSize", { n: i + 1 }))}" aria-pressed="${i === 1}"><span style="--s:${6 + i * 7}px"></span></button>`).join("")}
         </div>
-        <button class="btn small-btn" id="undo-btn">Undo</button>
-        <button class="btn small-btn" id="clear-btn">Clear</button>
-        <button class="btn primary small-btn" id="done-btn">Send</button>
+        <button class="btn small-btn" id="undo-btn">${esc(t("undo"))}</button>
+        <button class="btn small-btn" id="clear-btn">${esc(t("clear"))}</button>
+        <button class="btn primary small-btn" id="done-btn">${esc(t("send"))}</button>
       </div>
     </div>`;
 
@@ -807,11 +828,11 @@ function panelDraw(panel, seat) {
       s.strokes = [];
       redraw();
       clearArmed = 0;
-      e.target.textContent = "Clear";
+      e.target.textContent = t("clear");
     } else {
       clearArmed = Date.now();
-      e.target.textContent = "Sure?";
-      setTimeout(() => (e.target.textContent = "Clear"), 2500);
+      e.target.textContent = t("sure");
+      setTimeout(() => (e.target.textContent = t("clear")), 2500);
     }
   };
   const doneBtn = $("#done-btn");
@@ -834,14 +855,14 @@ function panelDraw(panel, seat) {
       });
       keepAwake(false);
       // Partner has notifications on: notify them. Otherwise open the share sheet (needs the tap).
-      if (game.players.b && game.push?.[G.otherSeat(seat)]) notifyPartner(seat, byTap ? "" : "Time's up, drawing sent. ");
+      if (game.players.b && game.push?.[G.otherSeat(seat)]) notifyPartner(seat, byTap ? "" : t("timeUpSent") + " ");
       else if (byTap) share(game.players.b ? "guess" : "join", { auto: true });
-      else toast("Time's up, drawing sent. Tap Nudge to tell your partner.");
+      else toast(t("timeUpNudge"));
     } catch (err) {
       console.error(err);
       s.sent = false;
       doneBtn.disabled = false;
-      toast("Couldn't send. Check your connection and tap Send again.");
+      toast(t("sendFailed"));
     }
   }
 
@@ -860,13 +881,12 @@ function panelDraw(panel, seat) {
 // ---------- panel: ready to guess ----------
 function panelReady(panel, seat) {
   const other = nameOf(game, G.otherSeat(seat));
-  const t = curTurn(game);
   panel.innerHTML = `
     <div class="card stack center">
-      <h2 class="big">${esc(other)} drew something</h2>
-      <p>You'll watch it being drawn and can guess any time. You have <strong>${G.guessLimitMs(game.drawSecs) / 1000} seconds</strong> once you start, and it keeps counting if you leave.</p>
-      <p class="muted small">You get ${G.MAX_GUESSES} wrong guesses. A quick guess is worth more: 3, 2 or 1 point, the same for both of you.</p>
-      <button class="btn primary big-btn" id="start-guess">Start</button>
+      <h2 class="big">${esc(t("drewSomething", { name: other }))}</h2>
+      <p>${t("readyInfoHtml", { secs: Number(G.guessLimitMs(game.drawSecs) / 1000) })}</p>
+      <p class="muted small">${esc(t("readyRules", { max: G.MAX_GUESSES }))}</p>
+      <button class="btn primary big-btn" id="start-guess">${esc(t("start"))}</button>
     </div>`;
   $("#start-guess").onclick = async (e) => {
     e.target.disabled = true;
@@ -875,33 +895,33 @@ function panelReady(panel, seat) {
     } catch (err) {
       console.error(err);
       e.target.disabled = false;
-      toast("Couldn't start. Check your connection.");
+      toast(t("startFailed"));
     }
   };
 }
 
 // ---------- panel: guess ----------
 function panelGuess(panel, seat) {
-  const t = curTurn(game);
+  const turn = curTurn(game);
   const key = game.cur;
-  const strokes = parseStrokes(t.strokes);
+  const strokes = parseStrokes(turn.strokes);
   const tl = G.replayTimeline(strokes);
   const limit = G.guessLimitMs(game.drawSecs);
-  const blanks = t.word
+  const blanks = turn.word
     .split(" ")
     .map((w) => `<span class="blank-word" aria-hidden="true">${[...w].map(() => "<i></i>").join("")}</span>`)
     .join("");
   panel.innerHTML = `
     <div class="draw-head">
-      <div class="blanks">${blanks}<span class="blank-count">${esc(G.letterHint(t.word))}</span></div>
+      <div class="blanks">${blanks}<span class="blank-count">${esc(t("letters", { word: turn.word }))}</span></div>
       <div class="timer" id="guess-timer"></div>
     </div>
     <div class="timebar"><div class="timebar-fill" id="guess-bar"></div></div>
     <div class="guess-meta"><span id="guess-worth"></span><span id="guess-left"></span></div>
     <div class="canvas-box"><canvas class="art" id="guess-canvas"></canvas></div>
     <form class="guess-form" id="guess-form" autocomplete="off">
-      <input class="input" id="guess-input" placeholder="Type a guess" enterkeyhint="send" autocapitalize="off" autocorrect="off" spellcheck="false">
-      <button class="btn primary" type="submit">Guess</button>
+      <input class="input" id="guess-input" placeholder="${esc(t("typeGuess"))}" enterkeyhint="send" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <button class="btn primary" type="submit">${esc(t("guess"))}</button>
     </form>
     <ul class="guesses" id="guess-list"></ul>`;
 
@@ -909,20 +929,20 @@ function panelGuess(panel, seat) {
   sizeCanvas(canvas);
   const s = (guessing = { finished: false });
   keepAwake(true);
-  const elapsed = () => store.now() - t.guessStartedAt;
+  const elapsed = () => store.now() - turn.guessStartedAt;
 
   const list = $("#guess-list");
   const made = [];
   const showLeft = () => {
     const n = G.guessesLeft(made);
-    $("#guess-left").textContent = `${n} wrong guess${n === 1 ? "" : "es"} left`;
+    $("#guess-left").textContent = t("guessesLeft", { n });
   };
   const addGuess = (g) => {
     made.push(g);
-    list.insertAdjacentHTML("afterbegin", `<li class="g-${esc(g.r)}">${esc(g.g)}${g.r === "close" ? " <em>so close!</em>" : ""}</li>`);
+    list.insertAdjacentHTML("afterbegin", `<li class="g-${esc(g.r)}">${esc(g.g)}${g.r === "close" ? ` <em>${esc(t("soClose"))}</em>` : ""}</li>`);
     showLeft();
   };
-  Object.values(t.guesses || {})
+  Object.values(turn.guesses || {})
     .sort((a, b) => a.t - b.t)
     .forEach(addGuess);
   showLeft();
@@ -933,11 +953,11 @@ function panelGuess(panel, seat) {
     clearInterval(s.timer);
     const pts = G.scoreTurn({ correct, ms, limitMs: limit });
     const used = usedWords(game);
-    const nextKey = turnKey(t.n + 1);
+    const nextKey = turnKey(turn.n + 1);
     const patch = {
       [`turns/${key}/status`]: "done",
       [`turns/${key}/result`]: { correct, ms: Math.round(ms), drawerPts: pts.drawer, guesserPts: pts.guesser },
-      [`turns/${nextKey}`]: makeTurn(t.n + 1, seat, used, game.lang, game.wordLevel, game.adult !== false),
+      [`turns/${nextKey}`]: makeTurn(turn.n + 1, seat, used, game.lang, game.wordLevel, game.adult !== false),
       cur: nextKey,
     };
     try {
@@ -947,7 +967,7 @@ function panelGuess(panel, seat) {
       console.error(err);
       s.finished = false;
       s.timer = setInterval(s.tick, 50);
-      toast("Couldn't save. Check your connection.");
+      toast(t("saveFailed"));
     }
   }
 
@@ -959,7 +979,7 @@ function panelGuess(panel, seat) {
     input.value = "";
     const ms = elapsed();
     if (ms > limit) return finish(false, limit);
-    const r = G.checkGuess(text, t.word);
+    const r = G.checkGuess(text, turn.word);
     const g = { g: text.slice(0, 40), t: Math.round(ms), r };
     addGuess(g);
     store.update(`games/${gameId}/turns/${key}/guesses`, { [store.newKey()]: g }).catch(console.error);
@@ -975,7 +995,7 @@ function panelGuess(panel, seat) {
     $("#guess-timer").textContent = secs(left);
     $("#guess-timer").classList.toggle("urgent", left < 10000);
     $("#guess-bar").style.transform = `scaleX(${Math.max(0, left / limit)})`;
-    $("#guess-worth").textContent = `Worth ${G.pointsAt(ms, limit)} now`;
+    $("#guess-worth").textContent = t("worthNow", { n: G.pointsAt(ms, limit) });
     paintReplay(canvas, strokes, tl, ms);
     if (left <= 0) finish(false, limit);
   };
@@ -990,9 +1010,9 @@ function panelWait(panel, seat) {
   const [, , what] = panelKey.split(":");
   const other = nameOf(game, G.otherSeat(seat));
   const msgs = {
-    join: ["Drawing sent!", "Now send your partner the link. They join, guess your drawing, then draw one for you."],
-    guess: [`Waiting for ${other} to guess`, "Give them a nudge so they know your drawing is ready."],
-    draw: [`Waiting for ${other} to draw`, "You'll get to guess as soon as they send it. Check back later."],
+    join: [t("sentHead"), t("sentSub")],
+    guess: [t("st_waitGuess", { name: other }), t("waitGuessSub")],
+    draw: [t("st_waitDraw", { name: other }), t("waitDrawSub")],
   };
   const [head, sub] = msgs[what];
   panel.innerHTML = `
@@ -1001,7 +1021,7 @@ function panelWait(panel, seat) {
       <p class="muted">${esc(sub)}</p>
       ${what === "join" ? `<p class="link-line">${esc(gameLink().replace(/^https?:\/\//, ""))}</p>` : ""}
       <p class="muted small" id="wait-extra"></p>
-      <button class="btn primary" id="share-btn">${what === "join" ? "Send invite link" : "Nudge " + esc(other)}</button>
+      <button class="btn primary" id="share-btn">${esc(what === "join" ? t("sendInvite") : t("nudge", { name: other }))}</button>
       <div id="push-box"></div>
     </div>`;
   $("#share-btn").onclick = () => share(what);
@@ -1016,20 +1036,20 @@ function renderPushBox(seat) {
   const perm = P.pushPermission();
   if (!box || perm === "unsupported") return;
   if (perm === "granted" && game.push?.[seat]) {
-    box.innerHTML = `<p class="muted small">You'll get a notification when it's your turn.</p>`;
+    box.innerHTML = `<p class="muted small">${esc(t("pushOn"))}</p>`;
   } else if (perm === "denied") {
-    box.innerHTML = `<p class="muted small">Notifications are blocked for this site. Allow them in the browser's site settings to get one when it's your turn.</p>`;
+    box.innerHTML = `<p class="muted small">${esc(t("pushBlocked"))}</p>`;
   } else {
-    box.innerHTML = `<button class="btn" id="push-btn">Notify me when it's my turn</button>`;
+    box.innerHTML = `<button class="btn" id="push-btn">${esc(t("pushButton"))}</button>`;
     $("#push-btn").onclick = async (e) => {
       e.target.disabled = true;
       try {
         const sub = await P.subscribe();
         if (sub) await store.update(`games/${gameId}/push`, { [seat]: sub });
-        else toast("Notifications weren't allowed.");
+        else toast(t("pushNotAllowed"));
       } catch (err) {
         console.error(err);
-        toast("Couldn't turn on notifications on this phone.");
+        toast(t("pushFailed"));
       }
       renderPushBox(seat);
     };
@@ -1050,13 +1070,14 @@ async function notifyPartner(seat, prefix) {
   const them = nameOf(game, other);
   let ok = false;
   try {
-    const r = await P.notify(game.push[other], { title: `${nameOf(game, seat)} drew something`, body: "Your turn to guess in Doodle Duet.", url: gameLink() });
+    const tt = tThem(game, seat);
+    const r = await P.notify(game.push[other], { title: tt("drewSomething", { name: nameOf(game, seat) }), body: tt("notifyBody"), url: gameLink() });
     if (r.gone) await store.update(`games/${gameId}/push`, { [other]: null });
     ok = r.status >= 200 && r.status < 300;
   } catch (err) {
     console.error(err);
   }
-  toast(prefix + (ok ? `${them} gets a notification.` : `Couldn't notify ${them}. Tap Nudge to tell them.`));
+  toast(prefix + (ok ? t("notified", { name: them }) : t("notifyFailed", { name: them })));
 }
 
 const gameLink = () => location.origin + location.pathname.replace(/index\.html$/, "") + "#" + gameId;
@@ -1064,11 +1085,8 @@ const gameLink = () => location.origin + location.pathname.replace(/index\.html$
 // auto: opened right after Send. Only the share sheet, and nothing on failure (the Nudge button stays).
 async function share(what, { auto = false } = {}) {
   const url = gameLink();
-  const text = {
-    join: `Play Doodle Duet with me! I've drawn the first one, your turn to guess.`,
-    guess: `My drawing is ready for you to guess in Doodle Duet.`,
-    draw: `Your turn to draw in Doodle Duet!`,
-  }[what];
+  const tt = tThem(game, seatOf(game));
+  const text = { join: tt("shareJoin"), guess: tt("shareGuess"), draw: tt("shareDraw") }[what];
   if (navigator.share) {
     try {
       await navigator.share({ title: "Doodle Duet", text, url });
@@ -1080,7 +1098,7 @@ async function share(what, { auto = false } = {}) {
   if (auto) return;
   try {
     await navigator.clipboard.writeText(text + " " + url);
-    toast("Link copied. Paste it in a message.");
+    toast(t("linkCopied"));
   } catch {
     toast(url);
   }

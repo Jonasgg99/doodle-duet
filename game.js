@@ -92,19 +92,21 @@ export function switchChoices(turn, from, to, pick) {
 }
 
 // One line of the games list for player `uid`: who they play (null while nobody has joined),
-// whether the next move is theirs, and what it is. game = {players, turn: the current turn's
+// whether the next move is theirs, and what it is (kind: draw, guess, waitDraw, waitGuess or
+// waitJoin, listed in STATUS_KINDS; the app words it). them is "" when the name is missing. game = {players, turn: the current turn's
 // {drawer, status, n}}. Null when the player isn't in the game. The other player writes their own
 // name into the game, so it may be anything: it always comes back as text.
+export const STATUS_KINDS = ["draw", "waitDraw", "waitGuess", "guess", "waitJoin"];
 export function gameStatus({ players, turn }, uid) {
   const seat = players?.a?.uid === uid ? "a" : players?.b?.uid === uid ? "b" : null;
   if (!seat || !turn) return null;
   const other = players[otherSeat(seat)];
-  const them = other ? String(other.name ?? "Player") : null;
+  const them = other ? String(other.name ?? "") : null;
   const round = turn.n + 1;
   const myDraw = turn.drawer === seat;
-  if (turn.status === "draw") return { them, mine: myDraw, text: myDraw ? "Your turn to draw" : `Waiting for ${them} to draw`, round };
-  if (!them) return { them, mine: false, text: "Waiting for someone to join", round };
-  return { them, mine: !myDraw, text: myDraw ? `Waiting for ${them} to guess` : "Your turn to guess", round };
+  if (turn.status === "draw") return { them, mine: myDraw, kind: myDraw ? "draw" : "waitDraw", round };
+  if (!them) return { them, mine: false, kind: "waitJoin", round };
+  return { them, mine: !myDraw, kind: myDraw ? "waitGuess" : "guess", round };
 }
 
 // Games list order: your move first, then by the other player's name; games nobody joined last.
@@ -134,13 +136,6 @@ export function teamScore(turns) {
     streak = t.result.correct ? streak + 1 : 0;
   }
   return { points, streak };
-}
-
-// The guesser's hint as a number, e.g. "8 letters" or "3 + 5 letters" for two words.
-export function letterHint(word) {
-  const counts = word.split(" ").map((w) => [...w].length);
-  const n = counts.reduce((a, b) => a + b, 0);
-  return `${counts.join(" + ")} letter${n === 1 ? "" : "s"}`;
 }
 
 // Turns in round order. Keys are "t" + round padded to 3 digits, so key order breaks at t1000.
