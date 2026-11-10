@@ -1,6 +1,6 @@
 # Doodle Duet
 
-A two-player drawing game you play at your own pace. One of you picks a word and draws it against the clock; the other opens the game whenever they like, watches the drawing being replayed stroke by stroke, and guesses. Then you swap.
+A drawing game for two that you play at your own pace, with as many games going as you like. One of you picks a word and draws it against the clock; the other opens the game whenever they like, watches the drawing being replayed stroke by stroke, and guesses. Then you swap.
 
 ## Rules
 - The drawer picks one of three words and has 60 seconds to draw it. The drawing is sent automatically when time runs out.
@@ -13,11 +13,13 @@ A two-player drawing game you play at your own pace. One of you picks a word and
 ## Playing on Android
 Open the game link in Chrome (or Samsung Internet) and use **Add to home screen / Install app** from the browser menu. It then runs full screen like an app. Works with the S Pen; once the pen has touched the canvas, finger and palm touches are ignored for that drawing.
 
-The site is one shared game for the two of you: **jonasgg99.github.io/doodle-duet**. The first person to open it enters a name, picks a language, taps **Start** and draws. The second person opens the same address and taps **Join game**. After that nobody else can get in. Tapping Send after drawing opens your phone's share sheet so you can tell your partner straight away; if the timer sent the drawing for you, use the Nudge button.
+The site is **jonasgg99.github.io/doodle-duet**. The first time, you make your player: type the name others see and sign in with Google, so your games follow you to any phone or browser where you sign in with the same account. The game keeps only your name.
 
-To skip that: on the waiting screen, tap **Notify me when it's my turn** and allow notifications. From then on your partner's Send gives you a phone notification instead, with no app to install. Notifications go through a small Cloudflare Worker and your browser's push service (Google's, for Chrome on Android); the message is encrypted for your phone on the way.
+The site opens on **Your games**, with the games where it's your move first. **New game** picks the language and words, then either someone from the list of players (the game shows up in their list straight away) or **Invite someone with a link** for a person who hasn't made a player yet: whoever opens the link and taps **Join game** gets the seat. You always draw first. Tapping Send after drawing opens your phone's share sheet so you can tell the other player; if the timer sent the drawing for you, use the Nudge button.
 
-Each phone is identified by the browser's anonymous sign-in, so each browser counts as a different player: a link opened inside Messenger or another app's built-in browser is not the same as Chrome. Open the game in the browser you'll keep playing in. To move the second player to a new phone or browser (or after they cleared the site data), the player who set up the game taps **Let … join again** at the bottom of the game; the second player then opens the game in the new browser and taps **Join game**. Scores and the current round are kept.
+To skip that: on the waiting screen, tap **Notify me when it's my turn** and allow notifications. From then on the other player's Send gives you a phone notification instead, with no app to install. Opening your games list keeps this phone's notifications on in all your games. Notifications go through a small Cloudflare Worker and your browser's push service (Google's, for Chrome on Android); the message is encrypted for your phone on the way.
+
+Google won't sign in inside Messenger's or another app's built-in browser: open the link in Chrome. If someone played from a browser before signing in and now can't get into a game, the player who started it taps **Let … join again** at the bottom of the game; they then open it where they are signed in and tap **Join game**. Scores and the current round are kept.
 
 ## Running locally
 ```bash

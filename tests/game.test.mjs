@@ -22,6 +22,8 @@ import {
   turnsInOrder,
   letterHint,
   switchChoices,
+  gameStatus,
+  sortGames,
 } from "../game.js";
 import { WORDS } from "../words.js";
 
@@ -124,6 +126,25 @@ test("switching the word setting back and forth while choosing brings back the s
   go("hard", "easy");
   assert.deepEqual(turn.choices, easy);
   assert.equal(n, 2, "each setting is drawn once per round");
+});
+
+test("games list: each game says who you play and whose move it is", () => {
+  const players = { a: { uid: "u1", name: "Jonas" }, b: { uid: "u2", name: "Ida" } };
+  const st = (turn, me, ps = players) => gameStatus({ players: ps, turn }, me);
+  assert.deepEqual(st({ drawer: "a", status: "draw", n: 0 }, "u1"), { them: "Ida", mine: true, text: "Your turn to draw", round: 1 });
+  assert.deepEqual(st({ drawer: "a", status: "draw", n: 0 }, "u2"), { them: "Jonas", mine: false, text: "Waiting for Jonas to draw", round: 1 });
+  assert.deepEqual(st({ drawer: "a", status: "guess", n: 4 }, "u1"), { them: "Ida", mine: false, text: "Waiting for Ida to guess", round: 5 });
+  assert.deepEqual(st({ drawer: "a", status: "guess", n: 4 }, "u2"), { them: "Jonas", mine: true, text: "Your turn to guess", round: 5 });
+  const alone = { a: players.a };
+  assert.deepEqual(st({ drawer: "a", status: "draw", n: 0 }, "u1", alone), { them: null, mine: true, text: "Your turn to draw", round: 1 });
+  assert.deepEqual(st({ drawer: "a", status: "guess", n: 0 }, "u1", alone), { them: null, mine: false, text: "Waiting for someone to join", round: 1 });
+  assert.equal(st({ drawer: "a", status: "draw", n: 0 }, "u3"), null, "not your game");
+});
+
+test("games list order: your move first, then by name, games nobody joined last", () => {
+  const row = (id, mine, them) => ({ id, status: { mine, them } });
+  const sorted = sortGames([row(1, false, "Ola"), row(2, false, null), row(3, true, "Marte"), row(4, false, "Ida"), row(5, true, "Ida")]);
+  assert.deepEqual(sorted.map((r) => r.id), [5, 3, 4, 1, 2]);
 });
 
 test("missed guesses: the wrong and close guesses in the order they were made", () => {

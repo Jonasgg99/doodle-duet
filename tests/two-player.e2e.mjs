@@ -46,6 +46,11 @@ async function scribble(p) {
     await p.clock.runFor(300);
   }
 }
+async function makePlayer(p, name) {
+  await p.waitForSelector("#view-setup:not([hidden])");
+  await p.fill("#player-name", name);
+  await p.click("#signin-btn");
+}
 async function guess(p, word) {
   await p.fill("#guess-input", word);
   await p.press("#guess-input", "Enter");
@@ -54,11 +59,14 @@ async function guess(p, word) {
 // --- Round 1: Jonas sets up the game, draws, and Send opens the share sheet ---
 const A = await open("A");
 await A.goto(URL0);
-await A.fill("#name-input", "Jonas");
+await makePlayer(A, "Jonas");
+await A.waitForSelector("#view-list:not([hidden])");
 await shot(A, "01-home");
 await noSideScroll(A, "home");
 await A.click("#new-game-btn");
+await A.click("#invite-btn");
 await A.waitForSelector(".choice");
+const GAME = URL0 + "#" + (await A.evaluate(() => window.__dd.gameId));
 await shot(A, "02-choose");
 await A.locator(".choice").nth(1).click();
 await A.waitForSelector("#draw-canvas");
@@ -70,14 +78,14 @@ await A.waitForSelector("#share-btn");
 assert.match(await text(A, "#panel"), /Drawing sent/);
 const s1 = await shares(A);
 assert.equal(s1.length, 1, "Send opened the share sheet");
-assert.equal(s1[0].url, "http://localhost:8124/");
+assert.equal(s1[0].url, GAME.replace("?local", ""));
 assert.match(s1[0].text, /your turn to guess/);
 await shot(A, "04-sent");
 
 // --- Ida joins and guesses quickly: worth 3 each ---
 const B = await open("B");
-await B.goto(URL0);
-await B.fill("#join-name", "Ida");
+await B.goto(GAME);
+await makePlayer(B, "Ida");
 await B.click("#join-btn");
 await B.waitForSelector("#start-guess");
 assert.match(await text(B, "#panel"), /3 wrong guesses/);
@@ -183,7 +191,8 @@ await shot(A, "10-reopened");
 
 // A third tab is locked out of the game
 const C = await open("C");
-await C.goto(URL0);
+await C.goto(GAME);
+await makePlayer(C, "Ida");
 await C.waitForSelector("#view-error:not([hidden])");
 assert.match(await text(C, "#error-text"), /Let Ida join again/, "the lock-out says how to move a seat");
 
@@ -195,14 +204,14 @@ await A.click("#reseat-btn");
 await B.waitForSelector("#view-join:not([hidden])");
 await C.reload();
 await C.waitForSelector("#view-join:not([hidden])");
-await C.fill("#join-name", "Ida");
 await C.click("#join-btn");
 await C.waitForSelector(".choice"); // it was Ida's turn to draw
 assert.deepEqual(await scores(C), [3, 3]);
 assert.match(await text(C, "#scoreboard"), /round 4/i);
 assert.match(await text(C, "#scoreboard .is-me"), /Ida/);
 const D = await open("D");
-await D.goto(URL0);
+await D.goto(GAME);
+await makePlayer(D, "Dan");
 await D.waitForSelector("#view-error:not([hidden])"); // two players again
 
 await A.emulateMedia({ colorScheme: "dark" });
@@ -215,7 +224,9 @@ await ctxX.addInitScript(() => {
   const x = '<img src=x onerror="window.__pwned=1">';
   const t = (n, extra) => ({ n, drawer: "a", word: "cat", strokes: "[]", ...extra });
   sessionStorage.setItem("dd_uid", "local-victim");
+  sessionStorage.setItem("dd_signedin", "1");
   localStorage.setItem("dd_localdb", JSON.stringify({
+    players: { "local-victim": { name: "Jonas" } },
     games: { evil: {
       lang: "en", drawSecs: x, cur: "t001",
       players: { a: { uid: "local-attacker", name: "Eve" }, b: { uid: "local-victim", name: "Jonas" } },

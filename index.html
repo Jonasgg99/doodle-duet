@@ -47,6 +47,7 @@
 <body>
   <header class="topbar">
     <a href="./" class="brand" id="brand">Doodle&nbsp;Duet</a>
+    <a href="#" class="back-link" id="back-link" hidden>‹ Games</a>
     <span class="mode-tag" id="mode-tag" hidden>local test mode</span>
   </header>
 
@@ -59,20 +60,46 @@
       </div>
     </section>
 
-    <section id="view-home" class="view" hidden>
-      <div class="card">
-        <label class="label" for="name-input">Your name</label>
-        <input id="name-input" class="input" maxlength="20" autocomplete="nickname" placeholder="What should your partner call you?">
-      </div>
-
+    <section id="view-setup" class="view" hidden>
       <div class="card stack">
-        <h2>Set up your game</h2>
+        <h2>Make your player</h2>
+        <p class="muted">One of you draws a word, the other watches it being drawn and guesses, then you swap. Play as many games as you like, with anyone who has a player.</p>
+        <label class="label" for="player-name">Your name</label>
+        <input id="player-name" class="input" maxlength="20" autocomplete="nickname" placeholder="The name other players see">
+        <button id="signin-btn" class="btn primary">Continue with Google</button>
+        <p class="muted small" id="google-note">Signing in keeps your games when you switch phone or browser: sign in with the same Google account there. Doodle Duet keeps only the name you type here.</p>
+        <p class="error" id="setup-error" hidden></p>
+      </div>
+    </section>
+
+    <section id="view-list" class="view" hidden>
+      <div class="list-head">
+        <h2>Your games</h2>
+        <span class="muted small" id="me-name"></span>
+      </div>
+      <p class="muted" id="list-empty" hidden>No games yet. Start one, then pick someone to play with or send them a link.</p>
+      <ul class="games-list" id="games-list"></ul>
+      <button id="new-game-btn" class="btn primary">New game</button>
+    </section>
+
+    <section id="view-new" class="view" hidden>
+      <div class="card stack">
+        <h2>New game</h2>
         <div class="field">
-          <span class="label" id="lang-label">Words</span>
+          <span class="label" id="lang-label">Language</span>
           <div class="seg" id="lang-seg" role="radiogroup" aria-labelledby="lang-label"></div>
         </div>
-        <button id="new-game-btn" class="btn primary">Start</button>
-        <p class="muted small">60 seconds per drawing. You draw first, then send your partner the link. They guess, then draw the next one.</p>
+        <div class="field">
+          <span class="label" id="level-label">Words</span>
+          <div class="seg" id="level-seg" role="radiogroup" aria-labelledby="level-label"></div>
+        </div>
+      </div>
+      <div class="card stack">
+        <h2>Play with</h2>
+        <div class="people" id="people"></div>
+        <p class="muted small" id="people-empty" hidden>Nobody else has made a player yet.</p>
+        <button id="invite-btn" class="btn">Invite someone with a link</button>
+        <p class="muted small">You draw first. The game shows up in their list straight away; someone who isn't in the list joins by opening the link you send.</p>
       </div>
     </section>
 
@@ -80,8 +107,6 @@
       <div class="card stack">
         <h2 id="join-title">You're invited</h2>
         <p class="muted" id="join-sub"></p>
-        <label class="label" for="join-name">Your name</label>
-        <input id="join-name" class="input" maxlength="20" autocomplete="nickname">
         <button id="join-btn" class="btn primary">Join game</button>
         <p class="error" id="join-error" hidden></p>
       </div>

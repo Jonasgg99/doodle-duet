@@ -73,6 +73,11 @@ async function drawAndSend(p) {
   await p.click("#done-btn");
   await p.waitForSelector("#share-btn");
 }
+async function makePlayer(p, name) {
+  await p.waitForSelector("#view-setup:not([hidden])");
+  await p.fill("#player-name", name);
+  await p.click("#signin-btn");
+}
 async function guessRight(p) {
   await p.click("#start-guess");
   await p.waitForSelector("#guess-canvas");
@@ -85,9 +90,11 @@ async function guessRight(p) {
 // Jonas starts; Ida hasn't joined, so Send still opens the share sheet.
 const A = await open("A");
 await A.goto(URL0);
-await A.fill("#name-input", "Jonas");
+await makePlayer(A, "Jonas");
 await A.click("#new-game-btn");
+await A.click("#invite-btn");
 await A.waitForSelector(".choice");
+const ID = await A.evaluate(() => window.__dd.gameId);
 await drawAndSend(A);
 assert.equal(await shares(A), 1, "invite goes through the share sheet");
 
@@ -100,8 +107,8 @@ assert.ok(subA.keys.p256dh && subA.keys.auth);
 
 // 2. Ida draws: Jonas has push, so the Worker is asked to notify him and no share sheet opens.
 const B = await open("B");
-await B.goto(URL0);
-await B.fill("#join-name", "Ida");
+await B.goto(URL0 + "#" + ID);
+await makePlayer(B, "Ida");
 await B.click("#join-btn");
 await guessRight(B);
 await drawAndSend(B);
@@ -109,7 +116,7 @@ await B.waitForSelector("#toast:has-text('Jonas gets a notification')");
 assert.equal(sent.length, 1);
 assert.deepEqual(sent[0].subscription, subA);
 assert.equal(sent[0].title, "Ida drew something");
-assert.equal(sent[0].url, ORIGIN + "/");
+assert.equal(sent[0].url, ORIGIN + "/#" + ID, "the notification opens this game");
 assert.equal(await shares(B), 0, "no share sheet when the partner gets a notification");
 
 // 4. Ida turns hers on; later her subscription turns out dead, so it is forgotten.
@@ -149,12 +156,12 @@ assert.deepEqual(shown, [["Ida drew something", "Your turn to guess in Doodle Du
 // 6. After a VAPID key change, a phone's subscription made with the old key is replaced on its
 // next visit, without tapping anything, and the new one is stored for the partner to use.
 const OLD = "https://fcm.googleapis.com/fcm/send/old-key";
-await A.evaluate((endpoint) => {
+await A.evaluate(([endpoint, id]) => {
   sessionStorage.setItem("__sub", JSON.stringify({ endpoint, key: Array(65).fill(4) }));
   const db = JSON.parse(localStorage.getItem("dd_localdb"));
-  db.games.main.push.a = { endpoint, keys: { p256dh: "x", auth: "y" } };
+  db.games[id].push.a = { endpoint, keys: { p256dh: "x", auth: "y" } };
   localStorage.setItem("dd_localdb", JSON.stringify(db));
-}, OLD);
+}, [OLD, ID]);
 await A.reload();
 let renewed;
 for (let i = 0; i < 30; i++) {
@@ -169,6 +176,22 @@ assert.ok(await A.evaluate(async () => {
   const b = Uint8Array.from(atob(want.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
   return s.endpoint !== "" && new Uint8Array(s.options.applicationServerKey).every((x, i) => x === b[i]);
 }), "new subscription uses the current key");
+
+// 7. A game started from the list has no notification address yet; opening the games list puts
+// this phone's into every game of yours that lacks it, so the partner can notify you there too.
+await A.goto(URL0);
+await A.click("#new-game-btn");
+await A.click("#people .person:has-text('Ida')");
+await A.waitForSelector(".choice");
+const ID2 = await A.evaluate(() => window.__dd.gameId);
+await A.goto(URL0);
+await A.waitForSelector("#games-list .game-row >> nth=1");
+let inGame2;
+for (let i = 0; i < 30 && !inGame2; i++) {
+  inGame2 = await A.evaluate((id) => JSON.parse(localStorage.getItem("dd_localdb")).games[id].push?.a?.endpoint, ID2);
+  if (!inGame2) await A.waitForTimeout(100);
+}
+assert.equal(inGame2, renewed, "the list stored this phone's subscription in the new game");
 
 await browser.close();
 assert.deepEqual(errors, [], "console errors:\n" + errors.join("\n"));

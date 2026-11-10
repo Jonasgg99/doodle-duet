@@ -1,6 +1,9 @@
 // Shared game storage. Two backends with the same interface:
-//   firebase: Realtime Database + anonymous auth (real play across two phones)
-//   local:    localStorage, identity per browser tab (two tabs can play each other; for testing)
+//   firebase: Realtime Database + Firebase auth. Everyone starts anonymous; signIn() links a
+//             Google account to that player (same uid), so the player follows them to other
+//             phones and browsers.
+//   local:    localStorage, identity per browser tab (two tabs can play each other; for testing).
+//             signIn() only marks the tab as signed in.
 // Paths are relative, e.g. "games/<id>/turns/t000". Firebase data lives under ROOT.
 import { firebaseConfig } from "./firebase-config.js";
 
@@ -24,13 +27,37 @@ async function firebaseStore(cfg) {
   await auth.authStateReady();
   if (!auth.currentUser) await A.signInAnonymously(auth);
   const db = D.getDatabase(app);
+  const google = () => auth.currentUser.providerData.some((p) => p.providerId === "google.com");
+  // Tests can't sign in with Google headless; the database rules don't depend on it.
+  let skipGoogle = false;
+  try {
+    skipGoogle = localStorage.getItem("dd_skip_google") === "1";
+  } catch {}
   const r = (path) => D.ref(db, ROOT + path);
   let offset = 0;
   D.onValue(D.ref(db, ".info/serverTimeOffset"), (s) => (offset = s.val() || 0));
 
   return {
     mode: "firebase",
-    uid: auth.currentUser.uid,
+    get uid() {
+      return auth.currentUser.uid;
+    },
+    get signedIn() {
+      return google() || skipGoogle;
+    },
+    // Opens Google's sign-in pop-up (call from a tap). "linked": this player now has the Google
+    // account. "switched": the account already had a player (made on another phone or browser),
+    // which is now this browser's player: the uid changed, so reload.
+    async signIn() {
+      try {
+        await A.linkWithPopup(auth.currentUser, new A.GoogleAuthProvider());
+        return "linked";
+      } catch (e) {
+        if (e.code !== "auth/credential-already-in-use") throw e;
+        await A.signInWithCredential(auth, A.GoogleAuthProvider.credentialFromError(e));
+        return "switched";
+      }
+    },
     now: () => Date.now() + offset,
     newKey: () => D.push(r("keys")).key,
     async get(path) {
@@ -88,6 +115,19 @@ function localStore() {
   return {
     mode: "local",
     uid,
+    get signedIn() {
+      try {
+        return sessionStorage.getItem("dd_signedin") === "1";
+      } catch {
+        return false;
+      }
+    },
+    async signIn() {
+      try {
+        sessionStorage.setItem("dd_signedin", "1");
+      } catch {}
+      return "linked";
+    },
     now: () => Date.now(),
     newKey: () => Date.now().toString(36) + randomId(4),
     async get(path) {

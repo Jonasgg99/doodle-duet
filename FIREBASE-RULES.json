@@ -1,10 +1,38 @@
 {
   "rules": {
     "doodleDuet": {
+      "players": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChild('name')",
+          "name": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      },
+      "users": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          "games": {
+            "$g": {
+              ".write": "auth != null && newData.exists() && root.child('doodleDuet/games/' + $g + '/players/a/uid').val() === auth.uid && root.child('doodleDuet/games/' + $g + '/players/b/uid').val() === $uid",
+              ".validate": "newData.val() === true"
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      },
       "games": {
         "$g": {
           ".read": "auth != null && (!data.exists() || !data.child('players/b').exists() || data.child('players/a/uid').val() === auth.uid || data.child('players/b/uid').val() === auth.uid)",
-          ".write": "auth != null && ((!data.exists() && newData.child('players/a/uid').val() === auth.uid) || data.child('players/a/uid').val() === auth.uid || data.child('players/b/uid').val() === auth.uid)",
+          ".write": "auth != null && ((!data.exists() && newData.child('players/a/uid').val() === auth.uid && (!newData.child('players/b').exists() || root.child('doodleDuet/players/' + newData.child('players/b/uid').val() + '/name').exists())) || data.child('players/a/uid').val() === auth.uid || data.child('players/b/uid').val() === auth.uid)",
           "players": {
             "b": {
               ".write": "auth != null && !data.exists() && newData.child('uid').val() === auth.uid"

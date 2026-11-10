@@ -21,8 +21,8 @@ await page.route("**/app.js", (route) => {
   return route.continue();
 });
 await page.goto("http://localhost:8124/?local");
-await page.waitForSelector("#view-home:not([hidden])", { timeout: 15_000 });
-assert.ok(errors.some((m) => /addEventListener/.test(m)), "the stale script did crash first");
+await page.waitForSelector("#view-setup:not([hidden])", { timeout: 15_000 });
+assert.ok(errors.length > 0, "the stale script did crash first"); // where depends on which element it misses
 assert.ok(staleServed >= 2, "app.js was downloaded again");
 await browser.close();
 console.log("stale-deploy self-heal: passed");

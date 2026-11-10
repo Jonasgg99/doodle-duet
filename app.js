@@ -1,4 +1,4 @@
-import { openStore } from "./store.js";
+import { openStore, randomId } from "./store.js";
 import { LANG_NAMES } from "./words.js";
 import * as G from "./game.js";
 import * as P from "./push.js";
@@ -53,18 +53,18 @@ async function keepAwake(on) {
 }
 
 // ---------- state ----------
-let store, me;
+let store, me, profile; // profile: this player's entry in the player list ({name}), once made
 let gameId = null, game = null, unwatch = null;
 let panelKey = null; // which panel is on screen, so live updates don't restart it
 let drawing = null; // active drawing session
 let guessing = null; // active guessing session
-// The site is one shared game for two people. Other ids (old links, tests) still open via #<id>.
-const MAIN_GAME = "main";
-const prefs = { name: ls.get("dd_name", ""), lang: ls.get("dd_lang", "en") };
+let offView = []; // unsubscribes for the games list and new-game screens
+const prefs = { name: ls.get("dd_name", ""), lang: ls.get("dd_lang", "en"), level: ls.get("dd_level", "mixed") };
 
 // ---------- views ----------
 function show(view) {
   for (const v of document.querySelectorAll(".view")) v.hidden = v.id !== "view-" + view;
+  $("#back-link").hidden = view === "list" || view === "setup" || view === "loading";
   if (view !== "game") setFocusMode(false);
 }
 function setFocusMode(on) {
@@ -76,17 +76,20 @@ function showError(msg) {
 }
 
 // ---------- boot & routing ----------
+// Routes: no hash = your games; #new = start a game; #<id> = that game. Before any of them, a
+// first visit makes a player (name + Google sign-in).
 async function boot() {
   try {
     store = await openStore();
+    me = store.uid;
+    profile = await store.get("players/" + me);
   } catch (e) {
     console.error(e);
     showError("Couldn't connect to the game server. Check your connection and reload.");
     return;
   }
-  me = store.uid;
   $("#mode-tag").hidden = store.mode !== "local";
-  setupHome();
+  setupViews();
   addEventListener("hashchange", route);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") tick();
@@ -99,54 +102,240 @@ function route() {
   stopSessions();
   if (unwatch) unwatch();
   unwatch = null;
+  for (const off of offView.splice(0)) off();
   game = null;
+  gameId = null;
   panelKey = null;
-  openGame(G.gameIdFromHash(location.hash) ?? MAIN_GAME);
+  if (!store.signedIn || !profile?.name) return showSetup();
+  if (location.hash === "#new") return showNew();
+  const id = G.gameIdFromHash(location.hash);
+  if (id) return openGame(id);
+  showList();
 }
 
-// ---------- home ----------
-function setupHome() {
-  const name = $("#name-input");
-  name.value = prefs.name;
-  name.addEventListener("input", () => ls.set("dd_name", (prefs.name = name.value.trim())));
+function setupViews() {
+  segmented($("#lang-seg"), Object.entries(LANG_NAMES), prefs.lang, (v) => ls.set("dd_lang", (prefs.lang = v)));
+  segmented($("#level-seg"), Object.entries(WORD_LABELS), prefs.level, (v) => ls.set("dd_level", (prefs.level = v)));
+  $("#new-game-btn").addEventListener("click", () => (location.hash = "new"));
+  $("#invite-btn").addEventListener("click", () => createGame(null));
+  $("#people").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-uid]");
+    if (b) createGame({ uid: b.dataset.uid, name: b.dataset.name });
+  });
+  $("#signin-btn").addEventListener("click", makePlayer);
+}
 
-  const seg = (el, options, current, onPick) => {
-    el.innerHTML = options
-      .map(([v, label]) => `<button type="button" role="radio" aria-checked="${v === current}" data-v="${v}">${esc(label)}</button>`)
+function segmented(el, options, current, onPick) {
+  el.innerHTML = options
+    .map(([v, label]) => `<button type="button" role="radio" aria-checked="${v === current}" data-v="${esc(v)}">${esc(label)}</button>`)
+    .join("");
+  el.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    for (const x of el.children) x.setAttribute("aria-checked", x === b);
+    onPick(b.dataset.v);
+  });
+}
+
+// ---------- first visit: make your player ----------
+function showSetup() {
+  show("setup");
+  const input = $("#player-name");
+  if (!input.value) input.value = profile?.name || prefs.name;
+  $("#signin-btn").textContent = store.signedIn ? "Continue" : "Continue with Google";
+  $("#google-note").hidden = store.signedIn;
+}
+
+async function makePlayer() {
+  const btn = $("#signin-btn");
+  const err = $("#setup-error");
+  const name = $("#player-name").value.trim().slice(0, 20);
+  err.hidden = true;
+  if (!name) {
+    err.textContent = "Type the name other players will see.";
+    err.hidden = false;
+    return;
+  }
+  btn.disabled = true;
+  try {
+    if (!store.signedIn && (await store.signIn()) === "switched") {
+      // This Google account already has a player from another phone or browser: carry on as it.
+      if (!(await store.get(`players/${store.uid}/name`))) await store.set(`players/${store.uid}`, { name });
+      location.reload();
+      return;
+    }
+    await store.set(`players/${me}`, { name });
+    profile = { name };
+    ls.set("dd_name", (prefs.name = name));
+    route();
+  } catch (e) {
+    console.error(e);
+    const cancelled = /popup-closed-by-user|cancelled-popup-request|user-cancelled/.test(e.code || "");
+    err.textContent = cancelled
+      ? "Sign-in was cancelled. Tap the button to try again."
+      : "Couldn't sign in. If you opened this from Messenger or another app, open it in Chrome instead (⋮ → Open in Chrome), then try again.";
+    err.hidden = false;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ---------- your games ----------
+// Reads only each game's players, current round and whose move it is, never the drawings.
+function showList() {
+  show("list");
+  $("#me-name").textContent = `Playing as ${profile.name}`;
+  const games = new Map(); // id -> {players, turn, off: [unsubscribe…]}
+  let loaded = false;
+  const render = () => {
+    const rows = [];
+    for (const [id, g] of games) {
+      const t = g.turn;
+      if (!g.players || !t || t.drawer == null || t.status == null || t.n == null) continue;
+      const status = G.gameStatus({ players: g.players, turn: t }, me);
+      if (status) rows.push({ id, status });
+    }
+    $("#list-empty").hidden = !loaded || games.size > 0;
+    $("#games-list").innerHTML = G.sortGames(rows)
+      .map(
+        ({ id, status: s }) => `<li><a class="game-row${s.mine ? " mine" : ""}" href="#${esc(id)}">
+          <span class="gr-them">${esc(s.them ?? "Invite sent")}</span>
+          <span class="gr-status">${esc(s.text)}</span>
+          <span class="gr-round">Round ${esc(s.round)}</span>
+        </a></li>`
+      )
       .join("");
-    el.addEventListener("click", (e) => {
-      const b = e.target.closest("button");
-      if (!b) return;
-      for (const x of el.children) x.setAttribute("aria-checked", x === b);
-      onPick(b.dataset.v);
-    });
   };
-  seg($("#lang-seg"), Object.entries(LANG_NAMES), prefs.lang, (v) => ls.set("dd_lang", (prefs.lang = v)));
-  $("#new-game-btn").addEventListener("click", newGame);
+  const drop = (id) => {
+    for (const off of games.get(id)?.off ?? []) off();
+    games.delete(id);
+  };
+  const follow = (id) => {
+    const g = { off: [] };
+    games.set(id, g);
+    // Lost access (someone else has the seat now): take it off the list.
+    const denied = (err) => {
+      console.warn(err);
+      store.set(`users/${me}/games/${id}`, null).catch(() => {});
+    };
+    g.off.push(
+      store.watch(
+        `games/${id}/players`,
+        (p) => {
+          g.players = p;
+          syncListPush(id, p);
+          render();
+        },
+        denied
+      )
+    );
+    let offTurn = () => {};
+    g.off.push(() => offTurn());
+    g.off.push(
+      store.watch(
+        `games/${id}/cur`,
+        (cur) => {
+          offTurn();
+          g.turn = cur ? {} : null;
+          const offs = cur ? ["drawer", "status", "n"].map((k) => store.watch(`games/${id}/turns/${cur}/${k}`, (v) => ((g.turn = { ...g.turn, [k]: v }), render()), denied)) : [];
+          offTurn = () => offs.forEach((off) => off());
+          render();
+        },
+        denied
+      )
+    );
+  };
+  offView.push(
+    store.watch(
+      `users/${me}/games`,
+      (ids) => {
+        const want = new Set(Object.keys(ids || {}));
+        for (const id of [...games.keys()]) if (!want.has(id)) drop(id);
+        for (const id of want) if (!games.has(id)) follow(id);
+        loaded = true;
+        render();
+      },
+      (err) => {
+        console.error(err);
+        showError("Couldn't load your games. Check your connection and reload.");
+      }
+    ),
+    () => [...games.keys()].forEach(drop)
+  );
+  addMainGame();
 }
 
-async function newGame() {
-  const name = prefs.name || "Player 1";
+// The game from before players and lists (id `main`) joins your list the first time it's found.
+let mainChecked = false;
+async function addMainGame() {
+  if (mainChecked) return;
+  mainChecked = true;
+  try {
+    const p = await store.get("games/main/players");
+    if (p?.a?.uid === me || p?.b?.uid === me) await store.set(`users/${me}/games/main`, true);
+  } catch {} // not your game: no access, nothing to add
+}
+
+// Put this phone's notification address into each of your games that lacks it, once per visit.
+const pushDone = new Set();
+let mySub;
+async function syncListPush(id, players) {
+  const seat = players?.a?.uid === me ? "a" : players?.b?.uid === me ? "b" : null;
+  if (!seat || pushDone.has(id)) return;
+  pushDone.add(id);
+  const sub = await (mySub ??= P.currentSubscription().catch(() => null));
+  if (!sub) return;
+  try {
+    const cur = await store.get(`games/${id}/push/${seat}`);
+    if (cur?.endpoint !== sub.endpoint) await store.update(`games/${id}/push`, { [seat]: sub });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// ---------- new game ----------
+function showNew() {
+  show("new");
+  offView.push(
+    store.watch("players", (all) => {
+      const people = Object.entries(all || {})
+        .filter(([uid, p]) => uid !== me && p?.name)
+        .sort(([, x], [, y]) => x.name.localeCompare(y.name));
+      $("#people-empty").hidden = people.length > 0;
+      $("#people").innerHTML = people
+        .map(([uid, p]) => `<button type="button" class="person" data-uid="${esc(uid)}" data-name="${esc(p.name)}">${esc(p.name)}</button>`)
+        .join("");
+    })
+  );
+}
+
+// partner: {uid, name} picked from the list, or null to invite someone with the game's link.
+async function createGame(partner) {
+  const btns = document.querySelectorAll("#view-new button");
+  for (const b of btns) b.disabled = true;
+  const id = randomId(10);
+  const players = { a: { uid: me, name: profile.name } };
+  if (partner) players.b = partner;
   const data = {
     v: 1,
     createdAt: store.now(),
     lang: prefs.lang,
+    wordLevel: prefs.level,
     drawSecs: G.DRAW_SECS,
-    players: { a: { uid: me, name } },
+    players,
     cur: turnKey(0),
-    turns: { [turnKey(0)]: makeTurn(0, "a", new Set(), prefs.lang) },
+    turns: { [turnKey(0)]: makeTurn(0, "a", new Set(), prefs.lang, prefs.level) },
   };
-  const btn = $("#new-game-btn");
-  btn.disabled = true;
   try {
-    // Claim, so a game the other phone created a moment earlier is never overwritten.
-    // Either way the live watch then shows whatever game exists.
-    await store.claim("games/" + gameId, data);
+    if (!(await store.claim("games/" + id, data))) throw new Error("game id taken");
+    await store.set(`users/${me}/games/${id}`, true);
+    if (partner) await store.set(`users/${partner.uid}/games/${id}`, true);
+    location.hash = id;
   } catch (e) {
     console.error(e);
-    toast("Couldn't create the game. Try again.");
+    toast("Couldn't start the game. Try again.");
   } finally {
-    btn.disabled = false;
+    for (const b of btns) b.disabled = false;
   }
 }
 
@@ -179,8 +368,9 @@ function openGame(id) {
     (err) => {
       console.error(err);
       showError(
-        "This game is already being played by two other devices, so it can't be opened here. " +
-          'If you\'re one of the players on a new phone or browser, ask your partner to tap "Let … join again" at the bottom of the game, then reload this page.'
+        "This game is already being played by two other players, so it can't be opened here. " +
+          "If you're one of them on another phone or browser, sign in with the same Google account you use there, " +
+          'or ask your partner to tap "Let … join again" at the bottom of the game, then reload this page.'
       );
     }
   );
@@ -190,15 +380,10 @@ function showJoin() {
   show("join");
   $("#join-title").textContent = `${nameOf(game, "a")} invited you to Doodle Duet`;
   $("#join-sub").textContent = `One of you draws, the other guesses, then you swap. ${game.drawSecs} seconds to draw each word.`;
-  const input = $("#join-name");
-  if (!input.value) input.value = prefs.name;
   $("#join-btn").onclick = async () => {
-    const name = input.value.trim() || "Player 2";
-    ls.set("dd_name", (prefs.name = name));
-    $("#name-input").value = name;
     $("#join-btn").disabled = true;
     try {
-      const ok = await store.claim(`games/${gameId}/players/b`, { uid: me, name });
+      const ok = await store.claim(`games/${gameId}/players/b`, { uid: me, name: profile.name });
       if (!ok) throw new Error("taken");
     } catch (e) {
       console.error(e);
@@ -211,9 +396,17 @@ function showJoin() {
   };
 }
 
+// Your seated games are kept in your list (users/<you>/games), whichever way you got the seat.
+const listed = new Set();
+function keepInList(id) {
+  if (listed.has(id)) return;
+  listed.add(id);
+  store.set(`users/${me}/games/${id}`, true).catch((err) => (console.error(err), listed.delete(id)));
+}
+
 // ---------- game rendering ----------
 function renderGame() {
-  if (!game) return show("home"); // no game yet: set it up
+  if (!game) return showError("This game doesn't exist. Tap ‹ Games to see yours or start a new one.");
   const seat = seatOf(game);
   if (!seat) {
     if (!game.players.b) return showJoin();
@@ -224,6 +417,7 @@ function renderGame() {
     );
   }
   show("game");
+  keepInList(gameId);
   syncPush(seat);
   renderScoreboard(seat);
   renderWordSetting();
@@ -810,7 +1004,7 @@ async function notifyPartner(seat, prefix) {
   toast(prefix + (ok ? `${them} gets a notification.` : `Couldn't notify ${them}. Tap Nudge to tell them.`));
 }
 
-const gameLink = () => location.origin + location.pathname.replace(/index\.html$/, "") + (gameId === MAIN_GAME ? "" : "#" + gameId);
+const gameLink = () => location.origin + location.pathname.replace(/index\.html$/, "") + "#" + gameId;
 
 // auto: opened right after Send. Only the share sheet, and nothing on failure (the Nudge button stays).
 async function share(what, { auto = false } = {}) {

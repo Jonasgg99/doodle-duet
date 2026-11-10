@@ -88,6 +88,29 @@ export function switchChoices(turn, from, to, pick) {
   return { choices: choiceSets[to] ?? pick(to), choiceSets };
 }
 
+// One line of the games list for player `uid`: who they play (null while nobody has joined),
+// whether the next move is theirs, and what it is. game = {players, turn: the current turn's
+// {drawer, status, n}}. Null when the player isn't in the game.
+export function gameStatus({ players, turn }, uid) {
+  const seat = players?.a?.uid === uid ? "a" : players?.b?.uid === uid ? "b" : null;
+  if (!seat || !turn) return null;
+  const them = players[otherSeat(seat)]?.name ?? null;
+  const round = turn.n + 1;
+  const myDraw = turn.drawer === seat;
+  if (turn.status === "draw") return { them, mine: myDraw, text: myDraw ? "Your turn to draw" : `Waiting for ${them} to draw`, round };
+  if (!them) return { them, mine: false, text: "Waiting for someone to join", round };
+  return { them, mine: !myDraw, text: myDraw ? `Waiting for ${them} to guess` : "Your turn to guess", round };
+}
+
+// Games list order: your move first, then by the other player's name; games nobody joined last.
+export function sortGames(rows) {
+  const key = (r) => [r.status.mine ? 0 : r.status.them ? 1 : 2, r.status.them ?? ""];
+  return [...rows].sort((x, y) => {
+    const [a, b] = [key(x), key(y)];
+    return a[0] - b[0] || a[1].localeCompare(b[1]);
+  });
+}
+
 // Accepts "#<id>" or older "#g=<id>" links. Returns the id or null (no id: the main game).
 export function gameIdFromHash(s) {
   const id = String(s ?? "").trim().replace(/^#/, "").replace(/^g=/, "").toLowerCase();
