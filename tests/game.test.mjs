@@ -21,6 +21,7 @@ import {
   resultIsNew,
   turnsInOrder,
   letterHint,
+  switchChoices,
 } from "../game.js";
 import { WORDS } from "../words.js";
 
@@ -104,6 +105,25 @@ test("word lists: no word twice in a language, and every word is lower-case word
     assert.deepEqual(all.filter((w, i) => all.indexOf(w) !== i), [], `${lang}: duplicates`);
     for (const w of all) assert.match(w, /^\p{Ll}+( \p{Ll}+)*$/u, `${lang}: "${w}"`);
   }
+});
+
+test("switching the word setting back and forth while choosing brings back the same words", () => {
+  let n = 0;
+  const pick = (setting) => [{ word: `${setting}-${++n}`, level: setting }];
+  let turn = { choices: [{ word: "mixed-0", level: "easy" }] };
+  const go = (from, to) => (turn = { ...turn, ...switchChoices(turn, from, to, pick) });
+  go("mixed", "hard");
+  const hard = turn.choices;
+  assert.notDeepEqual(hard, [{ word: "mixed-0", level: "easy" }], "a new setting gets its own words");
+  go("hard", "easy");
+  const easy = turn.choices;
+  go("easy", "mixed");
+  assert.deepEqual(turn.choices, [{ word: "mixed-0", level: "easy" }], "back to the first words");
+  go("mixed", "hard");
+  assert.deepEqual(turn.choices, hard);
+  go("hard", "easy");
+  assert.deepEqual(turn.choices, easy);
+  assert.equal(n, 2, "each setting is drawn once per round");
 });
 
 test("missed guesses: the wrong and close guesses in the order they were made", () => {

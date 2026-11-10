@@ -329,7 +329,8 @@ function renderScoreboard(seat) {
 }
 
 // Easy / Mixed / Hard, for both players, changeable any time. A word choice on screen that
-// hasn't been picked yet is redrawn from the new lists; otherwise it applies from the next round.
+// hasn't been picked yet switches to the new setting's words (the same ones each time within a
+// round); otherwise it applies from the next round.
 const WORD_LABELS = { easy: "Easy", mixed: "Mixed", hard: "Hard" };
 function renderWordSetting() {
   const seg = $("#word-seg");
@@ -347,7 +348,12 @@ function renderWordSetting() {
 async function setWordLevel(v) {
   const t = curTurn(game);
   const patch = { wordLevel: v };
-  if (t.status === "draw" && !t.word) patch[`turns/${game.cur}/choices`] = G.pickChoices(game.lang, usedWords(game), Math.random, v);
+  if (t.status === "draw" && !t.word) {
+    const pick = (s) => G.pickChoices(game.lang, usedWords(game), Math.random, s);
+    const next = G.switchChoices(t, game.wordLevel ?? "mixed", v, pick);
+    patch[`turns/${game.cur}/choices`] = next.choices;
+    patch[`turns/${game.cur}/choiceSets`] = next.choiceSets;
+  }
   try {
     await store.update(`games/${gameId}`, patch);
   } catch (err) {

@@ -80,6 +80,14 @@ export function pickChoices(lang, used, rng = Math.random, setting) {
   return [...fresh, ...reused].slice(0, 3);
 }
 
+// The word setting changed while the drawer is still choosing: keep the words on screen for the
+// old setting and show the new setting's words, drawn once per round, so switching back and forth
+// brings back the same words. pick(setting) draws fresh choices. Returns the turn fields to write.
+export function switchChoices(turn, from, to, pick) {
+  const choiceSets = { ...turn.choiceSets, [from]: turn.choices };
+  return { choices: choiceSets[to] ?? pick(to), choiceSets };
+}
+
 // Accepts "#<id>" or older "#g=<id>" links. Returns the id or null (no id: the main game).
 export function gameIdFromHash(s) {
   const id = String(s ?? "").trim().replace(/^#/, "").replace(/^g=/, "").toLowerCase();

@@ -112,11 +112,22 @@ await B.fill(".result-banner .note-input", "Nice drawing!");
 // her banner and half-written message stay (and keep the keyboard).
 const choicesNow = (p) => p.evaluate(() => window.__dd.game.turns[window.__dd.game.cur].choices);
 assert.ok((await choicesNow(B)).some((c) => c.level !== "hard"), "starts on the default lists");
+const firstWords = (await choicesNow(B)).map((c) => c.word);
 await A.click('#word-seg [data-v="hard"]');
 await B.waitForFunction(() => window.__dd.game.turns[window.__dd.game.cur].choices.every((c) => c.level === "hard"));
 const hard = (await choicesNow(B)).map((c) => c.word);
 await B.waitForFunction((w) => [...document.querySelectorAll(".choice .cw")].map((e) => e.textContent).join() === w.join(), hard);
 await B.waitForSelector('#word-seg [data-v="hard"][aria-checked="true"]'); // Ida sees the setting live
+// Switching back and forth while she's still choosing brings back the same words, not new ones.
+const shownWords = (p) => p.$$eval(".choice .cw", (els) => els.map((e) => e.textContent).join());
+await A.click('#word-seg [data-v="mixed"]');
+await B.waitForFunction(() => window.__dd.game.turns[window.__dd.game.cur].choices.some((c) => c.level !== "hard"));
+const mixedAgain = (await choicesNow(B)).map((c) => c.word);
+await A.click('#word-seg [data-v="hard"]');
+await B.waitForFunction((w) => [...document.querySelectorAll(".choice .cw")].map((e) => e.textContent).join() === w.join(), hard);
+assert.deepEqual((await choicesNow(B)).map((c) => c.word), hard, "Hard shows the same words again");
+assert.deepEqual(mixedAgain, firstWords, "Mixed brought back her first words");
+assert.equal(await shownWords(B), hard.join());
 assert.equal(await B.inputValue(".result-banner .note-input"), "Nice drawing!");
 assert.ok(await B.evaluate(() => document.activeElement?.classList.contains("note-input")), "message box keeps focus");
 await shot(B, "08b-hard-words");
