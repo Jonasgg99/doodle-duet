@@ -232,7 +232,7 @@ canvas.art {
 }
 
 /* players, games list, new game */
-.back-link { margin-left: auto; font-weight: 600; text-decoration: none; padding: 8px 4px; }
+.back-link { margin-left: auto; font-weight: 600; text-decoration: none; padding: 8px 4px; white-space: nowrap; }
 #view-list, #view-new { display: flex; flex-direction: column; gap: 12px; }
 #view-list[hidden], #view-new[hidden] { display: none; }
 .list-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }

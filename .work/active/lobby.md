@@ -19,6 +19,7 @@ Players with their own sign-in, several games at once, a home page listing your 
 - The `main` game is kept as one game in the list (Jonas).
 - Data: `players/<uid>/name` (list), `users/<uid>/games/<gameId>` (your list, private), games unchanged. Push stays per game; the home page writes this phone's subscription into each of your games lacking it. A brand-new game's first notification reaches the partner only if they opened the app since; else Send opens the share sheet.
 - Home page reads only players, `cur` and the current turn's drawer/status per game, never drawings.
+- Review (fresh agent, 2026-11-10) fixes: a non-text player name in a game crashed the list (names now coerced to text, and the rules require text names in games); the list sent this phone's notification address into any game in your list, and anyone can put a game there, so it now does that only for people you've opened a game with on this phone (`dd_partners`); deleted games leave the list; "No games yet" waits for games to load; no double game on a double tap; clearer sign-in errors (in-app browsers, name not saved). Accepted, not fixed: seat a can still set seat b to anyone in two steps (spam only, same as the open list); any seated player can still rewrite the whole game, including the other seat (as before); no limit on games added to your list; the Worker relays any text with a forgeable Origin (backlog); signing in with a Google account that already has a player leaves this browser's anonymous seats behind.
 
 ## Dead ends
 
@@ -32,5 +33,6 @@ Players with their own sign-in, several games at once, a home page listing your 
 - Steps 1 and 2 of Next.
 
 ## Verified
+- Local: unit (29), lobby e2e (first visit, list live, invite link, pick a player, two games at once, `main` in the list with scores), two-player, push (incl. list sync for partners only, not for a stranger's game) and stale-deploy e2e passed @a671be2+dirty. Live rules not yet published; firebase e2e (rule refusals) not run against them yet.
 - Live `signin-test.html` on Pages: the pop-up reaches accounts.google.com (provider on, domain authorized), headless, no sign-in completed @b683227. Phone test pending.
 - Jonas's phone, Chrome (2026-11-10 21:02): linkWithPopup signed in as his Google account and kept the same player id. Installed-app run not reported yet.

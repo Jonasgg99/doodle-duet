@@ -141,6 +141,18 @@ test("games list: each game says who you play and whose move it is", () => {
   assert.equal(st({ drawer: "a", status: "draw", n: 0 }, "u3"), null, "not your game");
 });
 
+test("games list survives games with odd data from another player", () => {
+  const players = { a: { uid: "u1", name: 5 }, b: { uid: "u2", name: "Ida" } };
+  const s = gameStatus({ players, turn: { drawer: "a", status: "draw", n: 0 } }, "u2");
+  assert.equal(s.them, "5");
+  const rows = [5, true, { x: 1 }, "Ola"].map((name, id) => ({
+    id,
+    status: gameStatus({ players: { a: { uid: "u1", name }, b: { uid: "u2", name: "Ida" } }, turn: { drawer: "a", status: "draw", n: 0 } }, "u2"),
+  }));
+  assert.equal(sortGames(rows).length, 4);
+  assert.equal(gameStatus({ players: { a: { uid: "u1" }, b: { uid: "u2" } }, turn: { drawer: "a", status: "guess", n: 0 } }, "u2").them, "Player");
+});
+
 test("games list order: your move first, then by name, games nobody joined last", () => {
   const row = (id, mine, them) => ({ id, status: { mine, them } });
   const sorted = sortGames([row(1, false, "Ola"), row(2, false, null), row(3, true, "Marte"), row(4, false, "Ida"), row(5, true, "Ida")]);

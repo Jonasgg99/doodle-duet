@@ -90,11 +90,13 @@ export function switchChoices(turn, from, to, pick) {
 
 // One line of the games list for player `uid`: who they play (null while nobody has joined),
 // whether the next move is theirs, and what it is. game = {players, turn: the current turn's
-// {drawer, status, n}}. Null when the player isn't in the game.
+// {drawer, status, n}}. Null when the player isn't in the game. The other player writes their own
+// name into the game, so it may be anything: it always comes back as text.
 export function gameStatus({ players, turn }, uid) {
   const seat = players?.a?.uid === uid ? "a" : players?.b?.uid === uid ? "b" : null;
   if (!seat || !turn) return null;
-  const them = players[otherSeat(seat)]?.name ?? null;
+  const other = players[otherSeat(seat)];
+  const them = other ? String(other.name ?? "Player") : null;
   const round = turn.n + 1;
   const myDraw = turn.drawer === seat;
   if (turn.status === "draw") return { them, mine: myDraw, text: myDraw ? "Your turn to draw" : `Waiting for ${them} to draw`, round };
@@ -104,7 +106,7 @@ export function gameStatus({ players, turn }, uid) {
 
 // Games list order: your move first, then by the other player's name; games nobody joined last.
 export function sortGames(rows) {
-  const key = (r) => [r.status.mine ? 0 : r.status.them ? 1 : 2, r.status.them ?? ""];
+  const key = (r) => [r.status.mine ? 0 : r.status.them ? 1 : 2, String(r.status.them ?? "")];
   return [...rows].sort((x, y) => {
     const [a, b] = [key(x), key(y)];
     return a[0] - b[0] || a[1].localeCompare(b[1]);

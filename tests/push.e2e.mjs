@@ -193,6 +193,28 @@ for (let i = 0; i < 30 && !inGame2; i++) {
 }
 assert.equal(inGame2, renewed, "the list stored this phone's subscription in the new game");
 
+// 8. A game from someone Jonas has never played doesn't get his notification address just
+// because it appears in his list; it gets it once he opens that game himself.
+const M = await open("M");
+await M.goto(URL0);
+await makePlayer(M, "Marte");
+await M.click("#new-game-btn");
+await M.click("#people .person:has-text('Jonas')");
+await M.waitForSelector(".choice");
+const ID3 = await M.evaluate(() => window.__dd.gameId);
+await A.waitForSelector("#games-list .game-row:has-text('Marte')");
+await A.waitForTimeout(800);
+const pushIn3 = () => A.evaluate((id) => JSON.parse(localStorage.getItem("dd_localdb")).games[id].push?.b?.endpoint ?? null, ID3);
+assert.equal(await pushIn3(), null, "a stranger's game must not get Jonas's subscription from the list");
+await A.click("#games-list .game-row:has-text('Marte')");
+await A.waitForSelector("#scoreboard .is-me");
+let opened3;
+for (let i = 0; i < 30 && !opened3; i++) {
+  opened3 = await pushIn3();
+  if (!opened3) await A.waitForTimeout(100);
+}
+assert.equal(opened3, renewed, "opening the game turns notifications on there");
+
 await browser.close();
 assert.deepEqual(errors, [], "console errors:\n" + errors.join("\n"));
 console.log("push e2e: passed");

@@ -170,10 +170,12 @@ async function makePlayer() {
     route();
   } catch (e) {
     console.error(e);
-    const cancelled = /popup-closed-by-user|cancelled-popup-request|user-cancelled/.test(e.code || "");
-    err.textContent = cancelled
-      ? "Sign-in was cancelled. Tap the button to try again."
-      : "Couldn't sign in. If you opened this from Messenger or another app, open it in Chrome instead (⋮ → Open in Chrome), then try again.";
+    const inApp = "If you opened this from Messenger or another app, Google won't sign in there: open it in Chrome instead (⋮ → Open in Chrome).";
+    err.textContent = store.signedIn
+      ? "Couldn't save your name. Check your connection and try again."
+      : /popup-closed-by-user|cancelled-popup-request|user-cancelled/.test(e.code || "")
+        ? "Sign-in was cancelled. Tap the button to try again. " + inApp
+        : "Couldn't sign in. " + inApp;
     err.hidden = false;
   } finally {
     btn.disabled = false;
@@ -189,13 +191,15 @@ function showList() {
   let loaded = false;
   const render = () => {
     const rows = [];
+    let waiting = false;
     for (const [id, g] of games) {
       const t = g.turn;
+      if (g.players === undefined || t === undefined || (t && (t.drawer === undefined || t.status === undefined || t.n === undefined))) waiting = true;
       if (!g.players || !t || t.drawer == null || t.status == null || t.n == null) continue;
       const status = G.gameStatus({ players: g.players, turn: t }, me);
       if (status) rows.push({ id, status });
     }
-    $("#list-empty").hidden = !loaded || games.size > 0;
+    $("#list-empty").hidden = !loaded || waiting || rows.length > 0;
     $("#games-list").innerHTML = G.sortGames(rows)
       .map(
         ({ id, status: s }) => `<li><a class="game-row${s.mine ? " mine" : ""}" href="#${esc(id)}">
@@ -223,6 +227,7 @@ function showList() {
         `games/${id}/players`,
         (p) => {
           g.players = p;
+          if (p === null) store.set(`users/${me}/games/${id}`, null).catch(() => {}); // the game was deleted
           syncListPush(id, p);
           render();
         },
@@ -273,15 +278,25 @@ async function addMainGame() {
   try {
     const p = await store.get("games/main/players");
     if (p?.a?.uid === me || p?.b?.uid === me) await store.set(`users/${me}/games/main`, true);
-  } catch {} // not your game: no access, nothing to add
+  } catch (e) {
+    // No access means it isn't your game; anything else (offline) gets another try next time.
+    if (!/permission/i.test(e.code || e.message || "")) mainChecked = false;
+  }
 }
 
-// Put this phone's notification address into each of your games that lacks it, once per visit.
+// Put this phone's notification address into each of your games that lacks it, once per visit,
+// so a new game from someone you play with can notify you before you've opened it. Only for
+// people you've played on this phone: anyone can put a game in your list, and whoever has the
+// address can send this phone notifications. (Opening a game turns them on there anyway.)
 const pushDone = new Set();
 let mySub;
+const partners = () => ls.get("dd_partners", {});
+function rememberPartner(uid) {
+  if (uid && !partners()[uid]) ls.set("dd_partners", { ...partners(), [uid]: true });
+}
 async function syncListPush(id, players) {
   const seat = players?.a?.uid === me ? "a" : players?.b?.uid === me ? "b" : null;
-  if (!seat || pushDone.has(id)) return;
+  if (!seat || pushDone.has(id) || !partners()[players[G.otherSeat(seat)]?.uid]) return;
   pushDone.add(id);
   const sub = await (mySub ??= P.currentSubscription().catch(() => null));
   if (!sub) return;
@@ -310,7 +325,10 @@ function showNew() {
 }
 
 // partner: {uid, name} picked from the list, or null to invite someone with the game's link.
+let creating = false;
 async function createGame(partner) {
+  if (creating) return;
+  creating = true;
   const btns = document.querySelectorAll("#view-new button");
   for (const b of btns) b.disabled = true;
   const id = randomId(10);
@@ -333,8 +351,9 @@ async function createGame(partner) {
     location.hash = id;
   } catch (e) {
     console.error(e);
-    toast("Couldn't start the game. Try again.");
+    toast("Couldn't start the game. Check your connection and try again.");
   } finally {
+    creating = false;
     for (const b of btns) b.disabled = false;
   }
 }
@@ -418,6 +437,7 @@ function renderGame() {
   }
   show("game");
   keepInList(gameId);
+  rememberPartner(game.players[G.otherSeat(seat)]?.uid);
   syncPush(seat);
   renderScoreboard(seat);
   renderWordSetting();

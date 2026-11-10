@@ -106,6 +106,8 @@ try {
   const ghost = "zzghost" + Date.now().toString(36);
   const fake = { v: 1, lang: "en", drawSecs: 60, cur: "t000", players: { a: { uid: c, name: "zz test C" }, b: { uid: "nobody-" + ghost, name: "x" } }, turns: {} };
   assert.match(await tryWrite(C, "set", `games/${ghost}`, fake), DENIED, "start a game with someone who isn't a player");
+  const odd = { ...fake, players: { a: { uid: c, name: 5 }, b: { uid: a, name: "zz test A" } } };
+  assert.match(await tryWrite(C, "set", `games/${ghost}`, odd), DENIED, "a player name in a game must be text");
   // ...but starting one with a listed player and putting it in their list is allowed
   const g2 = "zzpick" + Date.now().toString(36);
   const real = { ...fake, players: { a: fake.players.a, b: { uid: a, name: "zz test A" } } };
