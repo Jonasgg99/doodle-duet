@@ -15,7 +15,7 @@ Players with their own sign-in, several games at once, a home page listing your 
 ## Decisions
 - Player = Google sign-in, linked to the existing anonymous player so its uid and seats stay (recommended in the design; Jonas approved the design as a whole, "Looks good", without picking explicitly). Pop-up, not redirect: redirect sign-in breaks in current browsers when the site and Firebase's auth domain differ, and GitHub Pages can't host the auth handler.
 - Starting a game: a list of all players to pick from (Jonas: "Just a list for now, won't be too many players") plus an invite link for someone not in it. The list (`players/<uid>/name`) is readable by anyone signed in; accepted.
-- Adult words stay in every game (Jonas).
+- Adult words: a per-game switch (Jonas, 2026-11-10, reversing "always in"), chosen when starting a game and changeable in the game; absent = included, so the game with Ida keeps them.
 - The `main` game is kept as one game in the list (Jonas).
 - Data: `players/<uid>/name` (list), `users/<uid>/games/<gameId>` (your list, private), games unchanged. Push stays per game; the home page writes this phone's subscription into each of your games lacking it. A brand-new game's first notification reaches the partner only if they opened the app since; else Send opens the share sheet.
 - Home page reads only players, `cur` and the current turn's drawer/status per game, never drawings.
@@ -33,6 +33,7 @@ Players with their own sign-in, several games at once, a home page listing your 
 - Steps 2 and 3 of Next on the real phones.
 
 ## Verified
+- Pages serves the shared score, adult-words switch and ~150 new words per language; live firebase e2e passed against https://jonasgg99.github.io/doodle-duet/ @c51a647.
 - Pages serves the players/lists build; live firebase e2e passed against https://jonasgg99.github.io/doodle-duet/ @dccbd5a. Real game and real players not touched.
 - Local: unit (29), lobby e2e (first visit, list live, invite link, pick a player, two games at once, `main` in the list with scores), two-player, push (incl. list sync for partners only, not for a stranger's game) and stale-deploy e2e passed @a671be2+dirty. Live rules published by Jonas; firebase e2e on localhost against them (incl. all stranger refusals, odd names refused, test players cleaned up) passed @07e67b7+dirty.
 - Live `signin-test.html` on Pages: the pop-up reaches accounts.google.com (provider on, domain authorized), headless, no sign-in completed @b683227. Phone test pending.
