@@ -31,7 +31,8 @@ const open = async (label) => {
 const shot = (p, name) => shots && p.screenshot({ path: `${shots}/${name}.png` });
 const text = (p, sel) => p.locator(sel).innerText();
 const shares = (p) => p.evaluate(() => window.__shares);
-const scores = (p) => p.$$eval(".pscore", (els) => els.map((e) => +e.textContent));
+// The scoreboard shows one shared score and the streak of rounds guessed in a row: [points, streak].
+const scores = (p) => Promise.all(["#team-points", "#team-streak"].map(async (s) => +(await p.locator(s).innerText())));
 const noSideScroll = async (p, where) =>
   assert.ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `horizontal scroll on ${where}`);
 
@@ -104,12 +105,12 @@ await guess(B, word1.toUpperCase());
 // No result screen: Ida lands on her word choice with the result on top.
 await B.waitForSelector(".choice");
 assert.match(await text(B, ".result-banner"), /You got it/);
-assert.match(await text(B, ".result-banner"), /\+3 for you/);
+assert.match(await text(B, ".result-banner"), /\+3 points/);
 await shot(B, "07-got-it-banner");
 
 await A.waitForSelector(".result-banner");
 assert.match(await text(A, ".result-banner"), /Ida got it/);
-assert.deepEqual(await scores(A), [3, 3]);
+assert.deepEqual(await scores(A), [3, 1]);
 assert.match(await text(A, "#panel"), /Waiting for Ida to draw/);
 // Jonas sees what Ida guessed wrong; Ida leaves him a message from her banner and he sees it live.
 assert.match(await text(A, ".result-banner"), /definitely not it/);
@@ -180,7 +181,7 @@ await B.waitForSelector("#guess-canvas");
 await B.clock.runFor(81_000);
 await B.waitForSelector(".choice");
 assert.match(await text(B, ".result-banner"), /Not this time/);
-assert.deepEqual(await scores(B), [3, 3]);
+assert.deepEqual(await scores(B), [3, 0], "two misses: points kept, streak reset");
 assert.match(await text(B, "#scoreboard"), /round 4/i);
 
 // Reopening lands straight in the game; the banner isn't shown twice.
@@ -206,7 +207,7 @@ await C.reload();
 await C.waitForSelector("#view-join:not([hidden])");
 await C.click("#join-btn");
 await C.waitForSelector(".choice"); // it was Ida's turn to draw
-assert.deepEqual(await scores(C), [3, 3]);
+assert.deepEqual(await scores(C), [3, 0]);
 assert.match(await text(C, "#scoreboard"), /round 4/i);
 assert.match(await text(C, "#scoreboard .is-me"), /Ida/);
 const D = await open("D");

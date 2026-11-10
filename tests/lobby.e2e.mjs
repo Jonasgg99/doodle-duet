@@ -120,10 +120,10 @@ await waitRows(M, [["Jonas", "Your turn to guess"]]);
 await waitRows(B, [["Jonas", "Your turn to draw"]]);
 await M.click("#games-list .game-row");
 await M.waitForSelector("#start-guess");
-assert.deepEqual(await M.$$eval(".pscore", (els) => els.map((e) => +e.textContent)), [0, 0]);
+assert.equal(await text(M, "#team-points"), "0");
 await B.click("#games-list .game-row");
 await B.waitForSelector(".choice");
-assert.deepEqual(await B.$$eval(".pscore", (els) => els.map((e) => +e.textContent)), [3, 3], "game 1 keeps its own score");
+assert.equal(await text(B, "#team-points"), "3", "game 1 keeps its own score");
 
 // Ida can't open Jonas and Marte's game
 await B.goto(URL0 + "#" + game2);
@@ -153,7 +153,7 @@ await waitRows(O, [["Ida", "Waiting for Ida to draw"]]);
 await O.click("#games-list .game-row");
 await O.waitForSelector("#scoreboard .is-me");
 assert.equal(await O.evaluate(() => window.__dd.gameId), "main");
-assert.deepEqual(await O.$$eval(".pscore", (els) => els.map((e) => +e.textContent)), [3, 3]);
+assert.deepEqual([await text(O, "#team-points"), await text(O, "#team-streak")], ["3", "1"]);
 await ctxOld.close();
 
 await browser.close();

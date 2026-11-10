@@ -365,7 +365,6 @@ function makeTurn(n, drawer, used, lang, wordLevel) {
 // ---------- game model helpers ----------
 const seatOf = (g) => (g?.players?.a?.uid === me ? "a" : g?.players?.b?.uid === me ? "b" : null);
 const turnList = (g) => G.turnsInOrder(g?.turns);
-const totals = (g) => G.totals(turnList(g));
 const nameOf = (g, seat) => g.players?.[seat]?.name || (seat === "a" ? "Player 1" : "Player 2");
 const curTurn = (g) => g.turns[g.cur];
 const guessDeadline = (g, t) => t.guessStartedAt + G.guessLimitMs(g.drawSecs);
@@ -477,9 +476,10 @@ function resultBanner(seat) {
   const r = last.result;
   const iDrew = last.drawer === seat;
   const other = nameOf(game, G.otherSeat(seat));
-  const mine = iDrew ? r.drawerPts : r.guesserPts;
+  const team = G.teamScore(turnList(game).filter((x) => x.n <= last.n));
+  const pts = G.teamScore([last]).points;
   const head = r.correct ? (iDrew ? `${other} got it!` : "You got it!") : iDrew ? `${other} didn't get it` : "Not this time";
-  const sub = r.correct ? `"${last.word}" in ${secs(r.ms)} s · +${mine} for you` : `It was "${last.word}". No points this round.`;
+  const sub = r.correct ? `"${last.word}" in ${secs(r.ms)} s · +${pts} points` + (team.streak > 1 ? ` · ${team.streak} in a row` : "") : `It was "${last.word}". No points this round.`;
   const missed = G.missedGuesses(last);
   const key = turnKey(last.n);
   const el = document.createElement("div");
@@ -531,15 +531,19 @@ function pickPanel(seat) {
   return (t.guessStartedAt ? "guess:" : "ready:") + t.n;
 }
 
+// Both players score together: one shared score and the streak of rounds guessed in a row.
 function renderScoreboard(seat) {
-  const t = totals(game);
+  const { points, streak } = G.teamScore(turnList(game));
   const cur = curTurn(game);
-  const chip = (s) => `
-    <div class="player p-${s} ${s === seat ? "is-me" : ""}">
-      <span class="pname">${esc(nameOf(game, s))}${s === seat ? ' <span class="you">you</span>' : ""}</span>
-      <span class="pscore">${esc(t[s])}</span>
+  const name = (s) =>
+    `<span class="pname p-${s}${s === seat ? " is-me" : ""}">${esc(nameOf(game, s))}${s === seat ? ' <span class="you">you</span>' : ""}</span>`;
+  $("#scoreboard").innerHTML = `
+    <div class="team-names">${name("a")}<span class="amp">&amp;</span>${name("b")}</div>
+    <div class="team-stats">
+      <div class="stat"><span class="snum" id="team-points">${esc(points)}</span><span class="slabel">points</span></div>
+      <div class="round">Round ${esc(cur.n + 1)}</div>
+      <div class="stat streak${streak > 1 ? " hot" : ""}"><span class="snum" id="team-streak">${esc(streak)}</span><span class="slabel">in a row</span></div>
     </div>`;
-  $("#scoreboard").innerHTML = `${chip("a")}<div class="round">Round ${esc(cur.n + 1)}</div>${chip("b")}`;
 }
 
 // Easy / Mixed / Hard, for both players, changeable any time. A word choice on screen that
@@ -614,7 +618,7 @@ function renderHistory(seat) {
     const r = t.result;
     const by = t.drawer === seat ? "You drew" : `${esc(nameOf(game, t.drawer))} drew`;
     const outcome = r.correct
-      ? `guessed in ${secs(r.ms)} s · +${esc(t.drawer === seat ? r.drawerPts : r.guesserPts)} for you`
+      ? `guessed in ${secs(r.ms)} s · +${esc(G.teamScore([t]).points)} points`
       : "not guessed";
     const missed = G.missedGuesses(t);
     li.insertAdjacentHTML(

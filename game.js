@@ -119,15 +119,18 @@ export function gameIdFromHash(s) {
   return /^[a-z0-9]{4,20}$/.test(id) ? id : null;
 }
 
-export function totals(turns) {
-  const t = { a: 0, b: 0 };
+// One shared score for the pair: each finished round adds its points once (drawer and guesser get
+// the same; rounds from the first scoring rules gave the guesser more, so the larger counts). The
+// streak is the rounds guessed right in a row, up to the latest one: a miss resets it.
+export function teamScore(turns) {
   const pts = (x) => (Number.isFinite(x) ? x : 0);
-  for (const turn of turns) {
-    if (!turn?.result) continue;
-    t[turn.drawer] += pts(turn.result.drawerPts);
-    t[otherSeat(turn.drawer)] += pts(turn.result.guesserPts);
+  let points = 0, streak = 0;
+  for (const t of turns) {
+    if (!t?.result) continue;
+    points += Math.max(pts(t.result.drawerPts), pts(t.result.guesserPts));
+    streak = t.result.correct ? streak + 1 : 0;
   }
-  return t;
+  return { points, streak };
 }
 
 // The guesser's hint as a number, e.g. "8 letters" or "3 + 5 letters" for two words.

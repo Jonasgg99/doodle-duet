@@ -8,7 +8,7 @@ import {
   scoreTurn,
   otherSeat,
   pickChoices,
-  totals,
+  teamScore,
   guessLimitMs,
   replayTimeline,
   pointsAt,
@@ -174,19 +174,20 @@ test("game ids are read from links; no id means the main game", () => {
   assert.equal(gameIdFromHash("#hello world"), null);
 });
 
-test("totals sum finished turns only", () => {
-  const turns = [
-    { drawer: "a", result: { drawerPts: 2, guesserPts: 3 } },
-    { drawer: "b", result: { drawerPts: 1, guesserPts: 1 } },
-    { drawer: "a" }, // in progress
-  ];
-  assert.deepEqual(totals(turns), { a: 3, b: 4 });
-  assert.deepEqual(totals([]), { a: 0, b: 0 });
+test("team score: shared points and the streak of rounds guessed in a row", () => {
+  const won = (pts) => ({ status: "done", result: { correct: true, drawerPts: pts, guesserPts: pts } });
+  const lost = { status: "done", result: { correct: false, drawerPts: 0, guesserPts: 0 } };
+  const playing = { status: "draw" };
+  assert.deepEqual(teamScore([]), { points: 0, streak: 0 });
+  assert.deepEqual(teamScore([won(3), lost, won(2), won(1), playing]), { points: 6, streak: 2 });
+  assert.deepEqual(teamScore([won(3), won(3), lost, playing]), { points: 6, streak: 0 }, "a miss resets the streak");
+  // Rounds from the first scoring rules gave the guesser more than the drawer: the round counts once, the larger.
+  assert.deepEqual(teamScore([{ status: "done", result: { correct: true, drawerPts: 1, guesserPts: 2 } }]), { points: 2, streak: 1 });
 });
 
-test("totals count non-numeric points in bad data as 0", () => {
-  const turns = [{ drawer: "a", result: { drawerPts: "<img src=x>", guesserPts: 2 } }, { drawer: "b", result: { drawerPts: 1, guesserPts: null } }];
-  assert.deepEqual(totals(turns), { a: 0, b: 3 });
+test("team score counts non-numeric points in bad data as 0", () => {
+  const turns = [{ status: "done", result: { correct: true, drawerPts: "<img src=x>", guesserPts: null } }, { status: "done", result: { correct: true, drawerPts: 2, guesserPts: "9" } }];
+  assert.deepEqual(teamScore(turns), { points: 2, streak: 2 });
 });
 
 test("a round's result is new until seen, and again after the game was set up anew", () => {

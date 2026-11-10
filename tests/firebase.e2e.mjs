@@ -124,7 +124,7 @@ try {
   assert.match(await A.locator("#scoreboard .is-me").innerText(), /zz test A/);
 
   // B moves to another browser (C): A lets B join again, C takes the seat with scores kept
-  const scoresOf = (p) => p.$$eval(".pscore", (els) => els.map((e) => +e.textContent));
+  const scoresOf = (p) => Promise.all(["#team-points", "#team-streak"].map((s) => p.locator(s).innerText()));
   const before = await scoresOf(A);
   A.once("dialog", (d) => d.accept());
   await A.click("#reseat-btn", T);
