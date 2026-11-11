@@ -96,7 +96,7 @@ await A.click("#invite-btn");
 await A.waitForSelector(".choice");
 const ID = await A.evaluate(() => window.__dd.gameId);
 await drawAndSend(A);
-assert.equal(await shares(A), 1, "invite goes through the share sheet");
+assert.equal(await shares(A), 2, "invite and Send go through the share sheet");
 
 // 1. The waiting screen offers notifications; turning them on stores this phone's subscription.
 await A.click("#push-btn");
@@ -130,7 +130,7 @@ await A.waitForSelector("#toast:has-text('Couldn\\'t notify Ida')");
 assert.equal(sent.length, 2);
 assert.equal(sent[1].title, "Jonas drew something");
 assert.equal((await pushOf(A)).b, undefined, "dead subscription removed");
-assert.equal(await shares(A), 1, "still no extra share sheet");
+assert.equal(await shares(A), 2, "still no extra share sheet");
 
 // 5. The real service worker shows a delivered push as a notification.
 const cdp = await ctx.newCDPSession(A);

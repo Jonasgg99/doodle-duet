@@ -79,9 +79,9 @@ await A.click("#done-btn");
 await A.waitForSelector("#share-btn");
 assert.match(await text(A, "#panel"), /Drawing sent/);
 const s1 = await shares(A);
-assert.equal(s1.length, 1, "Send opened the share sheet");
-assert.equal(s1[0].url, GAME.replace("?local", ""));
-assert.match(s1[0].text, /your turn to guess/);
+assert.equal(s1.length, 2, "the invite, then Send, opened the share sheet");
+assert.equal(s1[1].url, GAME.replace("?local", ""));
+assert.match(s1[1].text, /your turn to guess/);
 await shot(A, "04-sent");
 
 // --- Ida joins and guesses quickly: worth 3 each ---

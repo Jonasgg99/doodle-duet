@@ -96,6 +96,8 @@ await A.waitForSelector(".choice");
 assert.match(await text(A, "#panel"), /Velg et ord å tegne/);
 assert.equal(await A.evaluate(() => window.__dd.game.lang), "no");
 const ID = await A.evaluate(() => window.__dd.gameId);
+assert.equal(await lastShare(A), "Spill Doodle Duet med meg! Åpne lenken for å bli med. Jeg tegner den første.");
+assert.equal(await text(A, "#invite-share"), "Send invitasjonslenke");
 await drawAndSend(A);
 assert.match(await text(A, "#panel"), /Tegningen er sendt!/);
 assert.match(await lastShare(A), /^Spill Doodle Duet med meg!/, "nobody has joined: the sender's language");

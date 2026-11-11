@@ -56,7 +56,8 @@ assert.match(await text(A, "#view-list"), /No games yet/);
 assert.match(await text(A, "#me-name"), /Jonas/);
 assert.ok(await A.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "no side scroll on the list");
 
-// --- 2. New game by invite link: Jonas draws first, Send shares the game's own link ---
+// --- 2. New game by invite link: the share sheet opens with the link at once, the word choice
+// offers it again until someone joins, and Send shares it once more with the drawing ---
 await A.click("#new-game-btn");
 await A.waitForSelector("#view-new:not([hidden])");
 assert.equal(await A.locator("#people .person").count(), 0, "nobody else to pick yet");
@@ -64,9 +65,16 @@ await A.click("#invite-btn");
 await A.waitForSelector(".choice");
 const game1 = await A.evaluate(() => window.__dd.gameId);
 assert.match(game1, /^[a-z0-9]{10}$/);
+const link1 = "http://localhost:8124/#" + game1;
+const [invite1] = await A.evaluate(() => window.__shares);
+assert.deepEqual([invite1?.url, invite1?.text], [link1, "Play Doodle Duet with me! Open the link to join. I'm drawing the first one."], "the invite opens the share sheet straight away");
+assert.match(await text(A, "#panel"), /localhost:8124\/#/, "the link shows while choosing a word");
+await A.click("#invite-share");
+assert.equal((await A.evaluate(() => window.__shares)).length, 2, "the link can be sent again before drawing");
 await drawAndSend(A);
-const [share1] = await A.evaluate(() => window.__shares);
-assert.equal(share1.url, "http://localhost:8124/#" + game1);
+const share1 = await A.evaluate(() => window.__shares.at(-1));
+assert.equal(share1.url, link1);
+assert.equal((await A.evaluate(() => window.__shares)).length, 3);
 
 // --- 3. Ida opens the link, makes her player and joins ---
 const B = await open("B");
@@ -107,6 +115,8 @@ await A.waitForSelector(".choice");
 const game2 = await A.evaluate(() => window.__dd.gameId);
 assert.notEqual(game2, game1);
 assert.ok((await A.evaluate(() => window.__dd.game.turns.t000.choices)).every((c) => c.level === "hard"), "the picked word setting is used");
+assert.equal((await A.evaluate(() => window.__shares)).length, 3, "no invite link when the partner was picked from the list");
+assert.equal(await A.locator("#invite-share").count(), 0);
 assert.equal(await A.evaluate(() => window.__dd.game.adult), false, "adult words left out, as picked");
 await A.waitForSelector('#adult-seg [data-v="off"][aria-checked="true"]');
 await waitRows(M, [["Jonas", "Waiting for Jonas to draw"]]);
@@ -118,7 +128,7 @@ await A.click("#games-list .game-row:has-text('Marte')");
 await A.waitForSelector(".choice");
 assert.equal(await A.evaluate(() => window.__dd.gameId), game2);
 await drawAndSend(A);
-assert.equal((await A.evaluate(() => window.__shares)).length, 2, "Send tells Marte through the share sheet");
+assert.equal((await A.evaluate(() => window.__shares)).length, 4, "Send tells Marte through the share sheet");
 await waitRows(M, [["Jonas", "Your turn to guess"]]);
 await waitRows(B, [["Jonas", "Your turn to draw"]]);
 await M.click("#games-list .game-row");

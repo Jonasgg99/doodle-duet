@@ -367,6 +367,8 @@ async function createGame(partner) {
     await store.set(`users/${me}/games/${id}`, true);
     if (partner) await store.set(`users/${partner.uid}/games/${id}`, true);
     location.hash = id;
+    // An invite by link: open the share sheet now, while the tap still allows it.
+    if (!partner) share("invite", { auto: true, id });
   } catch (e) {
     console.error(e);
     toast(t("startGameFailed"));
@@ -385,7 +387,7 @@ const seatOf = (g) => (g?.players?.a?.uid === me ? "a" : g?.players?.b?.uid === 
 const turnList = (g) => G.turnsInOrder(g?.turns);
 const nameOf = (g, seat) => g.players?.[seat]?.name || (seat === "a" ? t("player1") : t("player2"));
 // The other player's translator, for text they read (their language, when the game knows it).
-const tThem = (g, seat) => tFor(g.players?.[G.otherSeat(seat)]?.lang);
+const tThem = (g, seat) => tFor(g?.players?.[G.otherSeat(seat)]?.lang);
 const curTurn = (g) => g.turns[g.cur];
 const guessDeadline = (g, turn) => turn.guessStartedAt + G.guessLimitMs(g.drawSecs);
 
@@ -550,7 +552,7 @@ function fillNote(el, turn, seat) {
 function pickPanel(seat) {
   const turn = curTurn(game);
   if (turn.drawer === seat) {
-    if (turn.status === "draw") return turn.word ? "draw:" + turn.n : "choose:" + turn.n + ":" + turn.choices.map((c) => c.word).join("|");
+    if (turn.status === "draw") return turn.word ? "draw:" + turn.n : "choose:" + turn.n + ":" + turn.choices.map((c) => c.word).join("|") + (game.players.b ? "" : ":invite");
     return "wait:" + turn.n + ":" + (game.players.b ? "guess" : "join");
   }
   if (turn.status === "draw") return "wait:" + turn.n + ":draw";
@@ -725,7 +727,13 @@ function panelChoose(panel) {
       <div class="choices">
         ${turn.choices.map((c, i) => `<button class="choice" data-i="${i}"><span class="cw">${esc(c.word)}</span></button>`).join("")}
       </div>
-    </div>`;
+    </div>
+    ${game.players.b ? "" : `<div class="card stack center">
+      <p class="muted">${esc(t("inviteHint"))}</p>
+      <p class="link-line">${esc(gameLink().replace(/^https?:\/\//, ""))}</p>
+      <button class="btn" id="invite-share">${esc(t("sendInvite"))}</button>
+    </div>`}`;
+  $("#invite-share")?.addEventListener("click", () => share("invite"));
   panel.querySelector(".choices").addEventListener("click", async (e) => {
     const b = e.target.closest("button");
     if (!b) return;
@@ -1080,13 +1088,14 @@ async function notifyPartner(seat, prefix) {
   toast(prefix + (ok ? t("notified", { name: them }) : t("notifyFailed", { name: them })));
 }
 
-const gameLink = () => location.origin + location.pathname.replace(/index\.html$/, "") + "#" + gameId;
+const gameLink = (id = gameId) => location.origin + location.pathname.replace(/index\.html$/, "") + "#" + id;
 
-// auto: opened right after Send. Only the share sheet, and nothing on failure (the Nudge button stays).
-async function share(what, { auto = false } = {}) {
-  const url = gameLink();
-  const tt = tThem(game, seatOf(game));
-  const text = { join: tt("shareJoin"), guess: tt("shareGuess"), draw: tt("shareDraw") }[what];
+// auto: opened right after a tap (Send, or starting a game by invite). Only the share sheet, and
+// nothing on failure: a button on screen offers it again. id: a game not opened yet.
+async function share(what, { auto = false, id = gameId } = {}) {
+  const url = gameLink(id);
+  const tt = id === gameId ? tThem(game, seatOf(game)) : t;
+  const text = { invite: tt("shareInvite"), join: tt("shareJoin"), guess: tt("shareGuess"), draw: tt("shareDraw") }[what];
   if (navigator.share) {
     try {
       await navigator.share({ title: "Doodle Duet", text, url });
