@@ -3,7 +3,7 @@
 // Set to null for local mode (localStorage, two browser tabs play each other).
 export const firebaseConfig = {
   apiKey: "AIzaSyBEL1-6P5VPEANvJjLEVZNUdsY4x8lqXOI",
-  authDomain: "choice-maker-43921.firebaseapp.com",
+  authDomain: "doodle-duet-app.web.app",
   databaseURL: "https://choice-maker-43921-default-rtdb.firebaseio.com",
   projectId: "choice-maker-43921",
   storageBucket: "choice-maker-43921.firebasestorage.app",
