@@ -2,13 +2,13 @@
 // tab): a first visit makes a player, the plain site lists your games with whose move it is, a
 // new game goes to a player picked from the list (no link) or to whoever opens an invite link,
 // one player runs two games with two people at once, and an old `main` game shows up in the list.
-// Needs the :8124 server. Run: node tests/lobby.e2e.mjs
+// Needs the :4321 server. Run: node tests/lobby.e2e.mjs
 import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
 
 const pwPath = process.env.PLAYWRIGHT || "D:/Apps/quiz-maker/node_modules/@playwright/test/index.mjs";
 const { chromium } = await import(pathToFileURL(pwPath).href);
-const URL0 = "http://localhost:8124/?local";
+const URL0 = "http://localhost:4321/?local";
 const errors = [];
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 412, height: 892 }, isMobile: true, hasTouch: true });
@@ -65,10 +65,10 @@ await A.click("#invite-btn");
 await A.waitForSelector(".choice");
 const game1 = await A.evaluate(() => window.__dd.gameId);
 assert.match(game1, /^[a-z0-9]{10}$/);
-const link1 = "http://localhost:8124/#" + game1;
+const link1 = "http://localhost:4321/#" + game1;
 const [invite1] = await A.evaluate(() => window.__shares);
 assert.deepEqual([invite1?.url, invite1?.text], [link1, "Play Doodle Duet with me! Open the link to join. I'm drawing the first one."], "the invite opens the share sheet straight away");
-assert.match(await text(A, "#panel"), /localhost:8124\/#/, "the link shows while choosing a word");
+assert.match(await text(A, "#panel"), /localhost:4321\/#/, "the link shows while choosing a word");
 await A.click("#invite-share");
 assert.equal((await A.evaluate(() => window.__shares)).length, 2, "the link can be sent again before drawing");
 await drawAndSend(A);
@@ -141,6 +141,27 @@ assert.equal(await text(B, "#team-points"), "3", "game 1 keeps its own score");
 // Ida can't open Jonas and Marte's game
 await B.goto(URL0 + "#" + game2);
 await B.waitForSelector("#view-error:not([hidden])");
+
+// --- 6b. A game nobody joined can be deleted by whoever started it; a joined one can't ---
+assert.ok(await M.locator("#delete-btn").isHidden(), "no delete in a game both players are in (seat b)");
+await A.goto(URL0 + "#" + game2);
+await A.waitForSelector("#scoreboard .is-me");
+assert.ok(await A.locator("#delete-btn").isHidden(), "no delete in a game both players are in (seat a)");
+await A.goto(URL0 + "#new");
+await A.click("#invite-btn");
+await A.waitForSelector("#delete-btn:not([hidden])");
+const game3 = await A.evaluate(() => window.__dd.gameId);
+A.once("dialog", (d) => d.dismiss());
+await A.click("#delete-btn");
+await A.waitForTimeout(300);
+assert.equal(await A.evaluate(() => window.__dd.gameId), game3, "cancelling keeps the game");
+A.once("dialog", (d) => d.accept());
+await A.click("#delete-btn");
+await A.waitForSelector("#view-list:not([hidden])");
+assert.equal(await A.evaluate((id) => window.__dd.store.get("games/" + id), game3), null, "the game is gone");
+assert.equal(await A.evaluate((id) => window.__dd.store.get(`users/${window.__dd.store.uid}/games/${id}`), game3), null, "and off the list");
+await A.waitForFunction(() => document.querySelectorAll("#games-list .game-row").length === 2);
+assert.doesNotMatch(await text(A, "#games-list"), /Invite sent/);
 
 // --- 7. An old `main` game shows up in its players' lists, scores kept ---
 const ctxOld = await browser.newContext({ viewport: { width: 412, height: 892 } });

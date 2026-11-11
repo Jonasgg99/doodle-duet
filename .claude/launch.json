@@ -4,9 +4,9 @@
     {
       "name": "doodle-duet",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8124"],
-      "url": "http://localhost:8124",
-      "port": 8124
+      "runtimeArgs": ["-m", "http.server", "4321"],
+      "url": "http://localhost:4321",
+      "port": 4321
     }
   ]
 }

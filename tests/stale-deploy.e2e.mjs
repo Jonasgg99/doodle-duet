@@ -1,7 +1,7 @@
 // Right after a deploy a phone can get the new index.html with an old, cached app.js, which
 // crashes on start. This serves the previous app.js once (as a stale cache would) and checks the
 // page heals itself: re-downloads its files, reloads, and reaches the setup screen.
-// Needs `python -m http.server 8124`. Run: node tests/stale-deploy.e2e.mjs
+// Needs `python -m http.server 4321`. Run: node tests/stale-deploy.e2e.mjs
 import assert from "node:assert/strict";
 import { execSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
@@ -20,7 +20,7 @@ await page.route("**/app.js", (route) => {
   if (staleServed++ === 0) return route.fulfill({ body: oldApp, contentType: "text/javascript" });
   return route.continue();
 });
-await page.goto("http://localhost:8124/?local");
+await page.goto("http://localhost:4321/?local");
 await page.waitForSelector("#view-setup:not([hidden])", { timeout: 15_000 });
 assert.ok(errors.length > 0, "the stale script did crash first"); // where depends on which element it misses
 assert.ok(staleServed >= 2, "app.js was downloaded again");

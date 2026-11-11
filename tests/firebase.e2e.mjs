@@ -3,13 +3,13 @@
 // for what a stranger must not do. Google sign-in can't run headless, so the profiles skip it
 // (localStorage dd_skip_google; the rules don't depend on it). Test players are named "zz test …"
 // and removed from the player list at the end; the small test games stay.
-// Run: node tests/firebase.e2e.mjs [base-url]   (default http://localhost:8124/)
+// Run: node tests/firebase.e2e.mjs [base-url]   (default http://localhost:4321/)
 import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
 
 const pwPath = process.env.PLAYWRIGHT || "D:/Apps/quiz-maker/node_modules/@playwright/test/index.mjs";
 const { chromium } = await import(pathToFileURL(pwPath).href);
-const BASE = process.argv[2] || "http://localhost:8124/";
+const BASE = process.argv[2] || "http://localhost:4321/";
 const errors = [];
 const browser = await chromium.launch();
 const pages = [];

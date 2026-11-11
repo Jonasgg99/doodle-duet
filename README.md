@@ -25,6 +25,6 @@ Google won't sign in inside Messenger's or another app's built-in browser: open 
 
 ## Running locally
 ```bash
-python -m http.server 8124
+python -m http.server 4321
 ```
-Open `http://localhost:8124/?local`. In local mode each browser tab is a separate player, so two tabs can play each other.
+Open `http://localhost:4321/?local`. In local mode each browser tab is a separate player, so two tabs can play each other.

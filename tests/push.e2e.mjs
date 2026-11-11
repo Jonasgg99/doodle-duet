@@ -1,13 +1,13 @@
 // Notifications end to end in local mode. The browser's push service and the Cloudflare
 // Worker are stubbed at the edges (PushManager.subscribe, and the Worker URL via page.route);
 // the service worker is real and gets a push delivered through Chromium's DevTools protocol.
-// Needs the :8124 server. Run: node tests/push.e2e.mjs
+// Needs the :4321 server. Run: node tests/push.e2e.mjs
 import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
 
 const pwPath = process.env.PLAYWRIGHT || "D:/Apps/quiz-maker/node_modules/@playwright/test/index.mjs";
 const { chromium } = await import(pathToFileURL(pwPath).href);
-const ORIGIN = "http://localhost:8124";
+const ORIGIN = "http://localhost:4321";
 const URL0 = ORIGIN + "/?local";
 const WORKER = "https://push.test";
 const errors = [];

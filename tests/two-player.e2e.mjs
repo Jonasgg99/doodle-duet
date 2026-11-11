@@ -1,7 +1,7 @@
 // Two-player end-to-end test in local mode: two headless "phones" share one browser
 // context (shared localStorage, separate per-tab identities) and play three rounds:
 // a quick correct guess, a round lost on three wrong guesses, and one lost on time.
-// Needs a static server on :8124 (python -m http.server 8124) and Playwright, which this
+// Needs a static server on :4321 (python -m http.server 4321) and Playwright, which this
 // repo doesn't install: set PLAYWRIGHT to a playwright/index.mjs (defaults to quiz-maker's).
 // Run: node tests/two-player.e2e.mjs [screenshot-dir]
 import assert from "node:assert/strict";
@@ -11,7 +11,7 @@ const letterHint = (word) => translator("en")("letters", { word });
 
 const pwPath = process.env.PLAYWRIGHT || "D:/Apps/quiz-maker/node_modules/@playwright/test/index.mjs";
 const { chromium } = await import(pathToFileURL(pwPath).href);
-const URL0 = "http://localhost:8124/?local";
+const URL0 = "http://localhost:4321/?local";
 const shots = process.argv[2];
 const errors = [];
 

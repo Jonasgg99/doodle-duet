@@ -2,13 +2,13 @@
 // English, in one game. Each sees their own language; what one sends the other (share sheet,
 // notification) is in the receiver's language once the game knows it. The switch on the games
 // list overrides the phone. Narrow phone, so longer Norwegian text must not cause side scroll.
-// Needs the :8124 server. Run: node tests/i18n.e2e.mjs
+// Needs the :4321 server. Run: node tests/i18n.e2e.mjs
 import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
 
 const pwPath = process.env.PLAYWRIGHT || "D:/Apps/quiz-maker/node_modules/@playwright/test/index.mjs";
 const { chromium } = await import(pathToFileURL(pwPath).href);
-const URL0 = "http://localhost:8124/?local";
+const URL0 = "http://localhost:4321/?local";
 const WORKER = "https://push.test";
 const errors = [];
 const browser = await chromium.launch();
