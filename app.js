@@ -468,6 +468,7 @@ function renderGame() {
   renderWordSetting();
   renderHistory(seat);
   renderReseat(seat);
+  renderDelete(seat);
 
   const key = pickPanel(seat);
   if (key === panelKey) {
@@ -654,6 +655,28 @@ function renderReseat(seat) {
     } catch (err) {
       console.error(err);
       toast(t("failed"));
+    }
+  };
+}
+
+// A game nobody has joined yet (an invite that went nowhere) can be deleted by the player who
+// started it. Once someone has joined, the game is theirs too, so it stays.
+function renderDelete(seat) {
+  const btn = $("#delete-btn");
+  btn.hidden = seat !== "a" || !!game.players.b;
+  btn.onclick = async () => {
+    if (!confirm(t("deleteConfirm"))) return;
+    const id = gameId;
+    if (unwatch) unwatch(); // so the deletion doesn't show "this game doesn't exist"
+    unwatch = null;
+    try {
+      await store.set(`games/${id}`, null);
+      await store.set(`users/${me}/games/${id}`, null);
+      location.hash = "";
+    } catch (err) {
+      console.error(err);
+      toast(t("failed"));
+      route();
     }
   };
 }

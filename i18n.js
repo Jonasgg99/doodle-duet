@@ -100,6 +100,8 @@ const en = {
   reseatConfirm: "Let {name} join again from another phone or browser?\n\nThe one {name} plays on now loses the game. Scores are kept. {name} then opens the game there and taps Join game.",
   reseatDone: "Send {name} the link to join again.",
   failed: "Couldn't do that. Check your connection.",
+  deleteGame: "Delete this game",
+  deleteConfirm: "Delete this game? Nobody has joined it yet. This can't be undone.",
 
   // choosing, drawing, guessing
   pickWord: "Pick a word to draw",
@@ -247,6 +249,8 @@ const no = {
   reseatConfirm: "La {name} bli med igjen fra en annen telefon eller nettleser?\n\nDen {name} spiller på nå, mister spillet. Poengene beholdes. {name} åpner så spillet der og trykker «Bli med».",
   reseatDone: "Send {name} lenken for å bli med igjen.",
   failed: "Det gikk ikke. Sjekk nettet.",
+  deleteGame: "Slett dette spillet",
+  deleteConfirm: "Slette dette spillet? Ingen har blitt med ennå. Det kan ikke angres.",
 
   pickWord: "Velg et ord å tegne",
   timerStarts: "Klokka på {secs} sekunder starter med en gang du velger.",
