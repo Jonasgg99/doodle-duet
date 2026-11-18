@@ -21,16 +21,22 @@ Players with their own sign-in, several games at once, a home page listing your 
 - Home page reads only players, `cur` and the current turn's drawer/status per game, never drawings.
 - Review (fresh agent, 2026-11-10) fixes: a non-text player name in a game crashed the list (names now coerced to text, and the rules require text names in games); the list sent this phone's notification address into any game in your list, and anyone can put a game there, so it now does that only for people you've opened a game with on this phone (`dd_partners`); deleted games leave the list; "No games yet" waits for games to load; no double game on a double tap; clearer sign-in errors (in-app browsers, name not saved). Accepted, not fixed: seat a can still set seat b to anyone in two steps (spam only, same as the open list); any seated player can still rewrite the whole game, including the other seat (as before); no limit on games added to your list; the Worker relays any text with a forgeable Origin (backlog); signing in with a Google account that already has a player leaves this browser's anonymous seats behind.
 
+- 2026-11-18, later work on top (all pushed): Norwegian app text (473ce36), invite share sheet at once (41da3d9), delete for games nobody joined (f96b863), Google sign-in shown as doodle-duet-app.web.app (49d6739: Jonas made the Hosting site `doodle-duet-app`, the OAuth redirect URI and the authorized domain; headless check reached Google's page "continue to doodle-duet-app.web.app"), word choices skip words the same pair drew in other games (c8b931a; Jonas chose same-partner scope over all-games).
+- Local tests moved to port 4321: Windows reserves 8033-8432 at boot.
+
 ## Dead ends
 
 ## Next
 1. Deployed with Jonas's OK (rules published 2026-11-10, then push). `signin-test.html` removed in the deploy commit.
 2. Jonas and Ida open the site, make their players with Google (Jonas's Chrome is already linked; same uid as before), and check the game with Ida shows up in both lists with its scores. If a `main` seat lived in a browser that can't sign in (Messenger), seat b moves with "Let … join again"; seat a needs the console.
 3. Installed-app sign-in on Android still unreported.
+3b. A full Google sign-in through doodle-duet-app.web.app on a phone (private window) is unverified; only Google's account page was reached headless.
 4. Then finish: lasting notes are already in AGENTS.md/README; delete this file.
 
 ## Needs user
 - Steps 2 and 3 of Next on the real phones.
+- Should a Norwegian phone's new games default to Norwegian words (current, since 473ce36) or English?
+- The Messenger tip's Norwegian menu label ("⋮ → Åpne i Chrome") is a guess.
 
 ## Verified
 - Pages serves the shared score, adult-words switch and ~150 new words per language; live firebase e2e passed against https://jonasgg99.github.io/doodle-duet/ @c51a647.
