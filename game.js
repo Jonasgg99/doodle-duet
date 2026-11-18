@@ -146,16 +146,18 @@ export function gameIdFromHash(s) {
 
 // One shared score for the pair: each finished round adds its points once (drawer and guesser get
 // the same; rounds from the first scoring rules gave the guesser more, so the larger counts). The
-// streak is the rounds guessed right in a row, up to the latest one: a miss resets it.
+// streak is the rounds guessed right in a row, up to the latest one: a miss resets it. best is the
+// longest streak the game has had.
 export function teamScore(turns) {
   const pts = (x) => (Number.isFinite(x) ? x : 0);
-  let points = 0, streak = 0;
+  let points = 0, streak = 0, best = 0;
   for (const t of turns) {
     if (!t?.result) continue;
     points += Math.max(pts(t.result.drawerPts), pts(t.result.guesserPts));
     streak = t.result.correct ? streak + 1 : 0;
+    best = Math.max(best, streak);
   }
-  return { points, streak };
+  return { points, streak, best };
 }
 
 // Turns in round order. Keys are "t" + round padded to 3 digits, so key order breaks at t1000.

@@ -219,20 +219,21 @@ test("game ids are read from links; no id means the main game", () => {
   assert.equal(gameIdFromHash("#hello world"), null);
 });
 
-test("team score: shared points and the streak of rounds guessed in a row", () => {
+test("team score: shared points, the streak of rounds guessed in a row, and the best streak", () => {
   const won = (pts) => ({ status: "done", result: { correct: true, drawerPts: pts, guesserPts: pts } });
   const lost = { status: "done", result: { correct: false, drawerPts: 0, guesserPts: 0 } };
   const playing = { status: "draw" };
-  assert.deepEqual(teamScore([]), { points: 0, streak: 0 });
-  assert.deepEqual(teamScore([won(3), lost, won(2), won(1), playing]), { points: 6, streak: 2 });
-  assert.deepEqual(teamScore([won(3), won(3), lost, playing]), { points: 6, streak: 0 }, "a miss resets the streak");
+  assert.deepEqual(teamScore([]), { points: 0, streak: 0, best: 0 });
+  assert.deepEqual(teamScore([won(3), lost, won(2), won(1), playing]), { points: 6, streak: 2, best: 2 });
+  assert.deepEqual(teamScore([won(3), won(3), lost, playing]), { points: 6, streak: 0, best: 2 }, "a miss resets the streak, not the best");
+  assert.deepEqual(teamScore([won(1), won(1), won(1), lost, won(1)]), { points: 4, streak: 1, best: 3 }, "the best is the longest run so far");
   // Rounds from the first scoring rules gave the guesser more than the drawer: the round counts once, the larger.
-  assert.deepEqual(teamScore([{ status: "done", result: { correct: true, drawerPts: 1, guesserPts: 2 } }]), { points: 2, streak: 1 });
+  assert.deepEqual(teamScore([{ status: "done", result: { correct: true, drawerPts: 1, guesserPts: 2 } }]), { points: 2, streak: 1, best: 1 });
 });
 
 test("team score counts non-numeric points in bad data as 0", () => {
   const turns = [{ status: "done", result: { correct: true, drawerPts: "<img src=x>", guesserPts: null } }, { status: "done", result: { correct: true, drawerPts: 2, guesserPts: "9" } }];
-  assert.deepEqual(teamScore(turns), { points: 2, streak: 2 });
+  assert.deepEqual(teamScore(turns), { points: 2, streak: 2, best: 2 });
 });
 
 test("a round's result is new until seen, and again after the game was set up anew", () => {

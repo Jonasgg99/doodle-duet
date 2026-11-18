@@ -128,6 +128,7 @@ await A.click("#games-list .game-row");
 await A.waitForSelector("#start-guess");
 assert.match(await text(A, "#panel"), /Ida har tegnet noe/);
 assert.match(await text(A, "#scoreboard"), /poeng/i);
+assert.match(await text(A, "#scoreboard"), /beste 1/i);
 assert.equal(await text(A, "#reseat-btn"), "La Ida bli med igjen fra en ny telefon eller nettleser");
 assert.deepEqual(await A.$$eval("#word-seg button, #adult-seg button", (els) => els.map((e) => e.textContent)), ["Lett", "Blandet", "Vanskelig", "Med", "Uten"]);
 await noSideScroll(A, "game with both players, reseat button showing");

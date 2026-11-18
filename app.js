@@ -612,7 +612,7 @@ function pickPanel(seat) {
 
 // Both players score together: one shared score and the streak of rounds guessed in a row.
 function renderScoreboard(seat) {
-  const { points, streak } = G.teamScore(turnList(game));
+  const { points, streak, best } = G.teamScore(turnList(game));
   const cur = curTurn(game);
   const name = (s) =>
     `<span class="pname p-${s}${s === seat ? " is-me" : ""}">${esc(nameOf(game, s))}${s === seat ? ` <span class="you">${esc(t("youTag"))}</span>` : ""}</span>`;
@@ -621,7 +621,7 @@ function renderScoreboard(seat) {
     <div class="team-stats">
       <div class="stat"><span class="snum" id="team-points">${esc(points)}</span><span class="slabel">${esc(t("points"))}</span></div>
       <div class="round">${esc(t("round", { n: cur.n + 1 }))}</div>
-      <div class="stat streak${streak > 1 ? " hot" : ""}"><span class="snum" id="team-streak">${esc(streak)}</span><span class="slabel">${esc(t("inARow"))}</span></div>
+      <div class="stat streak${streak > 1 ? " hot" : ""}"><span class="snum" id="team-streak">${esc(streak)}</span><span class="slabel">${esc(t("inARow"))}</span><span class="sbest">${esc(t("bestStreak"))} <span id="team-best">${esc(best)}</span></span></div>
     </div>`;
 }
 
