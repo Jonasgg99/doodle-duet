@@ -351,6 +351,7 @@ async function createGame(partner) {
   const id = randomId(10);
   const players = { a: { uid: me, name: profile.name, lang: LANG } };
   if (partner) players.b = partner;
+  const used = partner ? await pairWords(partner.uid) : new Set();
   const data = {
     v: 1,
     createdAt: store.now(),
@@ -360,7 +361,7 @@ async function createGame(partner) {
     drawSecs: G.DRAW_SECS,
     players,
     cur: turnKey(0),
-    turns: { [turnKey(0)]: makeTurn(0, "a", new Set(), prefs.lang, prefs.level, prefs.adult !== "off") },
+    turns: { [turnKey(0)]: makeTurn(0, "a", used, prefs.lang, prefs.level, prefs.adult !== "off") },
   };
   try {
     if (!(await store.claim("games/" + id, data))) throw new Error("game id taken");
@@ -393,6 +394,51 @@ const guessDeadline = (g, turn) => turn.guessStartedAt + G.guessLimitMs(g.drawSe
 
 function usedWords(g) {
   return new Set(turnList(g).map((turn) => turn.word).filter(Boolean));
+}
+
+// Words already drawn by this pair: in this game and in your other games with the same partner,
+// so new word choices skip them (the picker falls back to them only when the lists run out).
+const partnerOf = (g) => g?.players?.[G.otherSeat(seatOf(g))]?.uid;
+const pairUsedWords = async () => new Set([...usedWords(game), ...(await pairWords(partnerOf(game), gameId))]);
+
+// The other games are read sparingly: their players, `cur` and each turn's word, never drawings.
+// A picked word never changes, so each game's finished turns are cached for the page's life and
+// later calls read only the turns added since. Games you can't read any more are skipped.
+const pairCache = new Map(); // game id -> {partner, n: turns cached, words}
+const pairRead = new Set(); // games whose pair words were read ahead this page load
+async function pairWords(partnerUid, exceptId) {
+  const words = new Set();
+  if (!partnerUid) return words;
+  try {
+    const ids = Object.keys((await store.get(`users/${me}/games`)) || {}).filter((id) => id !== exceptId);
+    await Promise.all(
+      ids.map(async (id) => {
+        try {
+          let c = pairCache.get(id);
+          if (!c?.partner) {
+            const p = await store.get(`games/${id}/players`);
+            const seat = p?.a?.uid === me ? "a" : p?.b?.uid === me ? "b" : null;
+            c = { partner: (seat && p[G.otherSeat(seat)]?.uid) || null, n: 0, words: [] };
+            pairCache.set(id, c);
+          }
+          if (c.partner !== partnerUid) return;
+          const n = parseInt(String((await store.get(`games/${id}/cur`)) ?? "").slice(1), 10);
+          if (!Number.isInteger(n) || n < c.n) return;
+          const got = await Promise.all(
+            Array.from({ length: n - c.n + 1 }, (_, i) => store.get(`games/${id}/turns/${turnKey(c.n + i)}/word`).catch(() => null))
+          );
+          for (const w of got.slice(0, -1)) if (typeof w === "string") c.words.push(w);
+          c.n = n; // the current turn (last read) may still change, so it isn't cached
+          for (const w of [...c.words, got.at(-1)]) if (typeof w === "string") words.add(w);
+        } catch (err) {
+          console.warn(err);
+        }
+      })
+    );
+  } catch (err) {
+    console.warn(err);
+  }
+  return words;
 }
 
 // ---------- open / join ----------
@@ -464,6 +510,10 @@ function renderGame() {
   saveLang(seat);
   rememberPartner(game.players[G.otherSeat(seat)]?.uid);
   syncPush(seat);
+  if (partnerOf(game) && !pairRead.has(gameId)) {
+    pairRead.add(gameId);
+    pairWords(partnerOf(game), gameId); // read ahead once, so the next word choice needn't wait
+  }
   renderScoreboard(seat);
   renderWordSetting();
   renderHistory(seat);
@@ -609,7 +659,7 @@ async function setAdult(on) {
   const turn = curTurn(game);
   const patch = { adult: on };
   if (turn.status === "draw" && !turn.word) {
-    patch[`turns/${game.cur}/choices`] = G.pickChoices(game.lang, usedWords(game), Math.random, game.wordLevel, on);
+    patch[`turns/${game.cur}/choices`] = G.pickChoices(game.lang, await pairUsedWords(), Math.random, game.wordLevel, on);
     patch[`turns/${game.cur}/choiceSets`] = null;
   }
   try {
@@ -624,7 +674,8 @@ async function setWordLevel(v) {
   const turn = curTurn(game);
   const patch = { wordLevel: v };
   if (turn.status === "draw" && !turn.word) {
-    const pick = (s) => G.pickChoices(game.lang, usedWords(game), Math.random, s, game.adult !== false);
+    const used = await pairUsedWords();
+    const pick = (s) => G.pickChoices(game.lang, used, Math.random, s, game.adult !== false);
     const next = G.switchChoices(turn, game.wordLevel ?? "mixed", v, pick);
     patch[`turns/${game.cur}/choices`] = next.choices;
     patch[`turns/${game.cur}/choiceSets`] = next.choiceSets;
@@ -983,7 +1034,7 @@ function panelGuess(panel, seat) {
     s.finished = true;
     clearInterval(s.timer);
     const pts = G.scoreTurn({ correct, ms, limitMs: limit });
-    const used = usedWords(game);
+    const used = await pairUsedWords();
     const nextKey = turnKey(turn.n + 1);
     const patch = {
       [`turns/${key}/status`]: "done",
