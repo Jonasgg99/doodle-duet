@@ -65,7 +65,9 @@ export const otherSeat = (seat) => (seat === "a" ? "b" : "a");
 
 // Three different words to choose from, from the lists the word setting allows, without the
 // adult words when the game leaves them out. Each keeps the list it came from (its level).
-export function pickChoices(lang, used, rng = Math.random, setting, adult = true) {
+// Words neither drawn (used) nor recently shown (avoid) come first, then recently shown ones,
+// then drawn ones, so the lists running out never leaves fewer than three.
+export function pickChoices(lang, used, rng = Math.random, setting, adult = true, avoid = new Set()) {
   const list = WORDS[lang] ?? WORDS.en;
   const adultWords = (WORDS[lang] ? ADULT_WORDS[lang] : ADULT_WORDS.en) ?? new Set();
   const pool = wordLevels(setting).flatMap((level) =>
@@ -78,9 +80,27 @@ export function pickChoices(lang, used, rng = Math.random, setting, adult = true
     }
     return xs;
   };
-  const fresh = shuffle(pool.filter((x) => !used.has(x.word)));
+  const fresh = shuffle(pool.filter((x) => !used.has(x.word) && !avoid.has(x.word)));
+  const resting = shuffle(pool.filter((x) => !used.has(x.word) && avoid.has(x.word)));
   const reused = shuffle(pool.filter((x) => used.has(x.word)));
-  return [...fresh, ...reused].slice(0, 3);
+  return [...fresh, ...resting, ...reused].slice(0, 3);
+}
+
+// Words offered but not picked sit out this many rounds before they're offered again.
+export const SHOWN_COOLDOWN_ROUNDS = 10;
+
+// The words offered in the last `rounds` rounds (the current one included) that weren't drawn:
+// each turn's choices and the other word settings' choices seen while switching.
+export function recentlyShown(turns, rounds = SHOWN_COOLDOWN_ROUNDS) {
+  const list = (turns ?? []).filter((t) => t && Number.isFinite(t.n));
+  const last = Math.max(-1, ...list.map((t) => t.n));
+  const shown = new Set();
+  for (const t of list) {
+    if (t.n <= last - rounds) continue;
+    const sets = [t.choices, ...Object.values(t.choiceSets ?? {})];
+    for (const set of sets) if (Array.isArray(set)) for (const c of set) if (typeof c?.word === "string" && c.word !== t.word) shown.add(c.word);
+  }
+  return shown;
 }
 
 // The word setting changed while the drawer is still choosing: keep the words on screen for the

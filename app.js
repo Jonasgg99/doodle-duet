@@ -379,8 +379,8 @@ async function createGame(partner) {
   }
 }
 
-function makeTurn(n, drawer, used, lang, wordLevel, adult) {
-  return { n, drawer, status: "draw", choices: G.pickChoices(lang, used, Math.random, wordLevel, adult) };
+function makeTurn(n, drawer, used, lang, wordLevel, adult, avoid) {
+  return { n, drawer, status: "draw", choices: G.pickChoices(lang, used, Math.random, wordLevel, adult, avoid) };
 }
 
 // ---------- game model helpers ----------
@@ -659,7 +659,7 @@ async function setAdult(on) {
   const turn = curTurn(game);
   const patch = { adult: on };
   if (turn.status === "draw" && !turn.word) {
-    patch[`turns/${game.cur}/choices`] = G.pickChoices(game.lang, await pairUsedWords(), Math.random, game.wordLevel, on);
+    patch[`turns/${game.cur}/choices`] = G.pickChoices(game.lang, await pairUsedWords(), Math.random, game.wordLevel, on, G.recentlyShown(turnList(game)));
     patch[`turns/${game.cur}/choiceSets`] = null;
   }
   try {
@@ -675,7 +675,8 @@ async function setWordLevel(v) {
   const patch = { wordLevel: v };
   if (turn.status === "draw" && !turn.word) {
     const used = await pairUsedWords();
-    const pick = (s) => G.pickChoices(game.lang, used, Math.random, s, game.adult !== false);
+    const shown = G.recentlyShown(turnList(game));
+    const pick = (s) => G.pickChoices(game.lang, used, Math.random, s, game.adult !== false, shown);
     const next = G.switchChoices(turn, game.wordLevel ?? "mixed", v, pick);
     patch[`turns/${game.cur}/choices`] = next.choices;
     patch[`turns/${game.cur}/choiceSets`] = next.choiceSets;
@@ -1039,7 +1040,7 @@ function panelGuess(panel, seat) {
     const patch = {
       [`turns/${key}/status`]: "done",
       [`turns/${key}/result`]: { correct, ms: Math.round(ms), drawerPts: pts.drawer, guesserPts: pts.guesser },
-      [`turns/${nextKey}`]: makeTurn(turn.n + 1, seat, used, game.lang, game.wordLevel, game.adult !== false),
+      [`turns/${nextKey}`]: makeTurn(turn.n + 1, seat, used, game.lang, game.wordLevel, game.adult !== false, G.recentlyShown(turnList(game))),
       cur: nextKey,
     };
     try {

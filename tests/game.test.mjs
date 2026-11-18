@@ -23,6 +23,8 @@ import {
   switchChoices,
   gameStatus,
   sortGames,
+  recentlyShown,
+  SHOWN_COOLDOWN_ROUNDS,
 } from "../game.js";
 import { WORDS, ADULT_WORDS } from "../words.js";
 
@@ -83,6 +85,35 @@ test("word choices reuse words once the pool runs low, still three different wor
   const used = new Set([...WORDS.en.easy, ...WORDS.en.medium]);
   const c = pickChoices("en", used, Math.random);
   assert.equal(new Set(c.map((x) => x.word)).size, 3);
+});
+
+test("words shown but not picked sit out a while: new choices avoid them, before falling back", () => {
+  const pool = [...WORDS.en.easy, ...WORDS.en.medium];
+  const used = new Set(pool.slice(0, -6)); // six words left, three of them shown recently
+  const avoid = new Set(pool.slice(-3));
+  const fresh = pool.slice(-6, -3).sort();
+  assert.deepEqual(pickChoices("en", used, Math.random, "mixed", true, avoid).map((x) => x.word).sort(), fresh);
+  // Only one word neither drawn nor recently shown: the other two come from the recently shown, not the drawn
+  const used2 = new Set(pool.slice(0, -4));
+  const c = pickChoices("en", used2, Math.random, "mixed", true, avoid).map((x) => x.word);
+  assert.ok(c.includes(pool.at(-4)), "the one fresh word");
+  assert.ok(c.every((w) => !used2.has(w)), "recently shown words come before drawn ones");
+});
+
+test("recently shown: the words offered but not picked in the last rounds, the current one included", () => {
+  assert.equal(SHOWN_COOLDOWN_ROUNDS, 10);
+  const turn = (n, words, word, extra = {}) => ({ n, choices: words.map((w) => ({ word: w, level: "easy" })), ...(word ? { word } : {}), ...extra });
+  const turns = [
+    turn(0, ["old1", "old2", "old3"], "old1"),
+    turn(1, ["cat", "dog", "sun"], "cat"),
+    turn(2, ["car", "hat", "cup"], "hat", { choiceSets: { hard: [{ word: "castle", level: "hard" }], mixed: [{ word: "car", level: "easy" }] } }),
+    turn(3, ["pen", "map", "key"]), // being chosen now
+  ];
+  assert.deepEqual([...recentlyShown(turns, 3)].sort(), ["car", "castle", "cup", "dog", "key", "map", "pen", "sun"]);
+  assert.ok(recentlyShown(turns, 10).has("old2"), "within the window");
+  assert.ok(!recentlyShown(turns, 3).has("old2"), "older rounds are free again");
+  assert.ok(!recentlyShown(turns, 10).has("cat") && !recentlyShown(turns, 10).has("old1"), "drawn words are not in it");
+  assert.equal(recentlyShown([{ n: 0 }, null, { n: 1, choices: "odd" }], 10).size, 0, "odd data is ignored");
 });
 
 test("word setting picks the lists: easy, mixed (easy+medium, the default), hard", () => {
